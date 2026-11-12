@@ -1,0 +1,615 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700&family=Poppins:wght@400;500;600;700&display=swap");
+
+:root {
+    --rosa: #d6307f;
+    --rosa-hover: #be2672;
+    --rosa-escuro: #a81e61;
+    --rosa-claro: #f9c6dc;
+    --rosa-bg: #fff1f6;
+    --ameixa: #3b1230;
+    --texto: #4a1d36;
+    --creme: #fff1f6;
+    --branco: #ffffff;
+    --cinza: #80677a;
+    --verde: #4caf50;
+    --vermelho: #c0392b;
+    --fonte-titulo: "Playfair Display", Georgia, "Times New Roman", serif;
+    --fonte-texto: "Poppins", "Segoe UI", Arial, sans-serif;
+}
+
+body {
+    font-family: var(--fonte-texto);
+    background: var(--creme);
+    color: var(--texto);
+}
+
+/* LOGIN */
+
+#areaLogin {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background: linear-gradient(135deg, #fde4ee 0%, #f9c6dc 100%);
+    padding: 30px;
+}
+
+.login-container {
+    width: 100%;
+    max-width: 1000px;
+    min-height: 600px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--branco);
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(168, 30, 97, 0.28);
+}
+
+.login-imagem {
+    min-height: 600px;
+    background:
+        linear-gradient(rgba(214, 48, 127, 0.30), rgba(110, 14, 66, 0.82)),
+        url("imagens/fundo.png") center/cover;
+    display: flex;
+    align-items: flex-end;
+}
+
+.login-overlay {
+    padding: 50px;
+    color: white;
+}
+
+.login-overlay h1 {
+    font-family: var(--fonte-titulo);
+    font-size: 48px;
+    margin-bottom: 10px;
+}
+
+.login-overlay p {
+    font-size: 20px;
+    font-family: var(--fonte-titulo);
+    font-style: italic;
+    color: #fff;
+}
+
+.login-formulario {
+    padding: 60px 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.login-formulario h2 {
+    font-family: var(--fonte-titulo);
+    color: var(--texto);
+    font-size: 32px;
+    margin-bottom: 10px;
+}
+
+.subtitulo {
+    color: var(--cinza);
+    margin-bottom: 35px;
+}
+
+.campo {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 20px;
+}
+
+.campo label {
+    font-weight: bold;
+    color: var(--texto);
+}
+
+.campo input,
+.campo select {
+    width: 100%;
+    padding: 13px 15px;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    background: white;
+}
+
+.campo input:focus,
+.campo select:focus {
+    border-color: var(--rosa);
+    box-shadow: 0 0 0 2px rgba(214, 48, 127, 0.15);
+}
+
+button {
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.login-formulario > button {
+    width: 100%;
+    background: var(--rosa-escuro);
+    color: white;
+    padding: 14px;
+    margin-top: 5px;
+}
+
+.login-formulario > button:hover {
+    background: var(--rosa-hover);
+}
+
+.trocar-cadastro {
+    text-align: center;
+    margin-top: 25px;
+    color: var(--cinza);
+}
+
+.trocar-cadastro button {
+    background: none;
+    color: var(--rosa);
+    padding: 0;
+    margin-left: 5px;
+}
+
+.trocar-cadastro button:hover {
+    text-decoration: underline;
+}
+
+#erroLogin {
+    color: var(--vermelho);
+    text-align: center;
+    margin-top: 15px;
+    min-height: 20px;
+}
+
+
+/* SISTEMA */
+
+#areaSistema {
+    min-height: 100vh;
+    background: var(--creme);
+}
+
+.topo {
+    height: 75px;
+    background: linear-gradient(120deg, #e8458f 0%, #d6307f 45%, #a81e61 100%);
+    box-shadow: 0 4px 18px rgba(168, 30, 97, 0.3);
+    position: relative;
+    z-index: 5;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 35px;
+}
+
+.logo h1 {
+    color: #fff;
+    font-size: 27px;
+}
+
+.usuario-topo {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.usuario-topo b {
+    color: #fff;
+}
+
+.usuario-topo button {
+    background: var(--vermelho);
+    color: white;
+}
+
+.usuario-topo button:hover {
+    opacity: 0.85;
+}
+
+
+/* MENU */
+
+.menu {
+    min-height: 60px;
+    background: #fff;
+    border-bottom: 1px solid #f3d4e1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 30px;
+    flex-wrap: wrap;
+}
+
+.menu button {
+    background: transparent;
+    color: var(--texto);
+    border: 1px solid transparent;
+    border-radius: 30px;
+}
+
+.menu button:hover {
+    background: var(--rosa-bg);
+    color: var(--rosa-escuro);
+    border-color: var(--rosa-claro);
+}
+
+
+/* CONTEÚDO */
+
+.conteudo {
+    max-width: 1400px;
+    margin: auto;
+    padding: 35px;
+}
+
+.pagina {
+    animation: aparecer 0.2s ease;
+}
+
+@keyframes aparecer {
+    from {
+        opacity: 0;
+        transform: translateY(5px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.titulo-pagina {
+    margin-bottom: 30px;
+}
+
+.titulo-pagina h2 {
+    font-family: var(--fonte-titulo);
+    font-size: 32px;
+    color: var(--texto);
+    margin-bottom: 7px;
+}
+
+.titulo-pagina p {
+    color: var(--cinza);
+}
+
+
+/* CARDS INÍCIO */
+
+.cards-inicio {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 20px;
+}
+
+.card-inicio {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    box-shadow: 0 5px 20px rgba(74, 29, 54, 0.08);
+    border-left: 5px solid var(--rosa);
+}
+
+.card-inicio .icone {
+    font-size: 30px;
+    margin-bottom: 15px;
+}
+
+.card-inicio h3 {
+    color: var(--texto);
+    margin-bottom: 10px;
+}
+
+.card-inicio p {
+    color: var(--rosa);
+    font-size: 28px;
+    font-weight: bold;
+}
+
+
+/* FORMULÁRIOS */
+
+.formulario {
+    background: white;
+    border-radius: 15px;
+    padding: 25px;
+    margin-bottom: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    box-shadow: 0 5px 20px rgba(74, 29, 54, 0.08);
+}
+
+.formulario .campo {
+    margin-bottom: 0;
+}
+
+.formulario > button {
+    background: var(--rosa-escuro);
+    color: white;
+    align-self: end;
+}
+
+.formulario > button:hover {
+    background: var(--rosa-hover);
+}
+
+
+/* TABELAS */
+
+.tabela-container {
+    background: white;
+    border-radius: 15px;
+    overflow-x: auto;
+    box-shadow: 0 5px 20px rgba(74, 29, 54, 0.08);
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 700px;
+}
+
+thead {
+    background: var(--rosa-bg);
+    color: var(--rosa-escuro);
+    border-bottom: 2px solid var(--rosa-claro);
+}
+
+th,
+td {
+    padding: 15px;
+    text-align: left;
+    border-bottom: 1px solid #eee;
+}
+
+th {
+    font-size: 14px;
+}
+
+td {
+    color: #444;
+}
+
+tbody tr:hover {
+    background: #fff7fa;
+}
+
+
+
+
+/* FINANCEIRO */
+
+.cards-financeiro {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+}
+
+.card-financeiro {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 5px 20px rgba(74, 29, 54, 0.08);
+}
+
+.card-financeiro span {
+    display: block;
+    color: var(--cinza);
+    margin-bottom: 15px;
+}
+
+.card-financeiro strong {
+    color: var(--rosa);
+    font-size: 28px;
+}
+
+
+/* CONTA */
+
+.conta-card {
+    max-width: 500px;
+    background: white;
+    padding: 40px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(74, 29, 54, 0.08);
+    text-align: center;
+}
+
+.avatar {
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 20px;
+    border-radius: 50%;
+    background: var(--rosa-escuro);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 40px;
+}
+
+.conta-card h3 {
+    color: var(--texto);
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+
+.conta-card p {
+    color: var(--cinza);
+    margin-bottom: 8px;
+}
+
+.conta-card span {
+    display: inline-block;
+    background: var(--rosa-claro);
+    color: var(--texto);
+    padding: 7px 15px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+
+/* CLASSE PARA ESCONDER */
+
+.escondido {
+    display: none !important;
+}
+
+
+/* RESPONSIVO */
+
+@media (max-width: 1000px) {
+
+    .login-container {
+        grid-template-columns: 1fr;
+        max-width: 600px;
+    }
+
+    .login-imagem {
+        min-height: 250px;
+    }
+
+    .login-overlay {
+        padding: 30px;
+    }
+
+    .login-overlay h1 {
+    font-family: var(--fonte-titulo);
+        font-size: 36px;
+    }
+
+    .cards-inicio {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .formulario {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .cards-financeiro {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+@media (max-width: 650px) {
+
+    #areaLogin {
+        padding: 15px;
+    }
+
+    .login-formulario {
+        padding: 35px 25px;
+    }
+
+    .login-imagem {
+        min-height: 200px;
+    }
+
+    .topo {
+        height: auto;
+        padding: 20px;
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    .usuario-topo {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+
+    .menu {
+        padding: 10px 15px;
+        justify-content: center;
+    }
+
+    .conteudo {
+        padding: 20px 15px;
+    }
+
+    .cards-inicio {
+        grid-template-columns: 1fr;
+    }
+
+    .formulario {
+        grid-template-columns: 1fr;
+    }
+
+    .titulo-pagina h2 {
+        font-size: 25px;
+    }
+}
+
+/* MARCA (logo em texto + flor) */
+
+.marca {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    color: #fff;
+    text-decoration: none;
+}
+
+.marca img {
+    height: 40px;
+    width: auto;
+}
+
+.marca b {
+    font-family: var(--fonte-titulo);
+    font-size: 28px;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+.marca-rosa {
+    color: var(--rosa-escuro);
+    display: flex;
+    justify-content: center;
+    margin-bottom: 18px;
+}
+
+.login-overlay .marca img { height: 70px; width: auto; }
+.login-overlay .marca b { font-size: 46px; }
+.topo .marca b { font-size: 26px; }
+.pf-topo .marca b { font-size: 24px; }
+
+.login-formulario > button,
+.formulario > button {
+    background: linear-gradient(120deg, #e8458f, #d6307f);
+    box-shadow: 0 6px 16px rgba(214, 48, 127, 0.3);
+}
+
+.login-formulario > button:hover,
+.formulario > button:hover {
+    background: linear-gradient(120deg, #d6307f, #a81e61);
+}
+
+.card-inicio, .kpi, .boas-vindas { border-left-color: var(--rosa); }
+
+button, input, select, textarea { font-family: inherit; }
+
+/* Botões do topo combinando com o rosa */
+.usuario-topo .btn-sino { background: rgba(255, 255, 255, 0.18); }
+.usuario-topo .btn-sino:hover { background: rgba(255, 255, 255, 0.3); }
+.usuario-topo .btn-sair, .usuario-topo button.btn-sair { background: #fff; color: var(--rosa-escuro); }
+.usuario-topo .btn-sair:hover { background: var(--rosa-claro); opacity: 1; }
+.btn-sino .contador { background: #fff; color: var(--rosa-escuro); font-weight: bold; }
+
+/* Sino (imagem original) */
+.usuario-topo .btn-sino { background: transparent; padding: 4px; }
+.btn-sino .sino-img { width: 38px; height: 38px; background: #fff; border: 2px solid rgba(255, 255, 255, 0.6); }
+.btn-sino .contador { top: -4px; right: -4px; }

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spa Delas - Acesso</title>
+    <link rel="icon" href="imagens/logo.png">
+    <link rel="stylesheet" href="estilo.css">
+    <link rel="stylesheet" href="comum.css">
+</head>
+<body>
+
+<div id="areaLogin">
+    <div class="login-container">
+
+        <div class="login-imagem">
+            <div class="login-overlay">
+                <span class="marca"><img src="imagens/logo-branca.png" alt=""><b>Spa Delas</b></span>
+                <p>Realce a sua beleza.</p>
+            </div>
+        </div>
+
+        <form class="login-formulario" id="formulario" novalidate>
+
+            <span class="marca marca-rosa"><img src="imagens/logo.png" alt=""><b>Spa Delas</b></span>
+
+            <h2 id="tituloLogin">Acesso</h2>
+            <p class="subtitulo" id="subtituloLogin">Entre para acessar o sistema</p>
+
+            <div id="avisoLogin"></div>
+
+            <div class="campo escondido" id="campoNome">
+                <label for="registroNome">Nome</label>
+                <input type="text" id="registroNome" autocomplete="name" maxlength="150">
+            </div>
+
+            <div class="campo">
+                <label for="loginEmail">E-mail</label>
+                <input type="email" id="loginEmail" autocomplete="email" maxlength="150">
+            </div>
+
+            <div class="campo" id="campoSenha">
+                <label for="loginSenha">Senha</label>
+                <div class="com-botao">
+                    <input type="password" id="loginSenha" autocomplete="current-password" maxlength="100">
+                    <button type="button" id="verSenha" aria-label="Mostrar ou ocultar a senha">👁</button>
+                </div>
+                <small id="dicaSenha" class="escondido">Mínimo de 6 caracteres.</small>
+            </div>
+
+            <div class="link-esqueci" id="linkEsqueci">
+                <button type="button" id="botaoEsqueci">Esqueci minha senha</button>
+            </div>
+
+            <button type="submit" id="botaoPrincipal">Entrar</button>
+
+            <p class="trocar-cadastro">
+                <span id="textoCadastro">Ainda não tem conta?</span>
+                <button type="button" id="botaoCadastro">Criar uma</button>
+            </p>
+
+            <p id="erroLogin" role="alert"></p>
+
+        </form>
+    </div>
+</div>
+
+<script src="comum.js"></script>
+<script>
+    // modo: "login" | "cadastro" | "esqueci"
+    var modo = "login";
+
+    function el(id) { return document.getElementById(id); }
+
+    function aviso(texto, tipo, html) {
+        var caixa = el("avisoLogin");
+        if (!texto) { caixa.innerHTML = ""; return; }
+        caixa.innerHTML = '<div class="aviso-caixa ' + (tipo || "info") + '">' + (html || esc(texto)) + "</div>";
+    }
+
+    function definirModo(novo) {
+        modo = novo;
+        el("erroLogin").textContent = "";
+        aviso("");
+
+        el("campoNome").classList.toggle("escondido", modo !== "cadastro");
+        el("campoSenha").classList.toggle("escondido", modo === "esqueci");
+        el("dicaSenha").classList.toggle("escondido", modo !== "cadastro");
+        el("linkEsqueci").classList.toggle("escondido", modo !== "login");
+        el("loginSenha").setAttribute("autocomplete", modo === "cadastro" ? "new-password" : "current-password");
+
+        if (modo === "login") {
+            el("tituloLogin").textContent = "Acesso";
+            el("subtituloLogin").textContent = "Entre para acessar o sistema";
+            el("botaoPrincipal").textContent = "Entrar";
+            el("textoCadastro").textContent = "Ainda não tem conta?";
+            el("botaoCadastro").textContent = "Criar uma";
+        } else if (modo === "cadastro") {
+            el("tituloLogin").textContent = "Criar conta";
+            el("subtituloLogin").textContent = "Cadastre-se para agendar seus horários";
+            el("botaoPrincipal").textContent = "Cadastrar";
+            el("textoCadastro").textContent = "Já possui uma conta?";
+            el("botaoCadastro").textContent = "Entrar";
+        } else {
+            el("tituloLogin").textContent = "Esqueci minha senha";
+            el("subtituloLogin").textContent = "Informe seu e-mail e enviaremos um link para criar uma nova senha";
+            el("botaoPrincipal").textContent = "Enviar link";
+            el("textoCadastro").textContent = "Lembrou a senha?";
+            el("botaoCadastro").textContent = "Voltar ao login";
+        }
+    }
+
+    el("botaoCadastro").onclick = function () {
+        definirModo(modo === "login" ? "cadastro" : "login");
+    };
+    el("botaoEsqueci").onclick = function () { definirModo("esqueci"); };
+
+    el("verSenha").onclick = function () {
+        var campo = el("loginSenha");
+        campo.type = campo.type === "password" ? "text" : "password";
+    };
+
+    el("formulario").onsubmit = async function (ev) {
+        ev.preventDefault();
+
+        var erro = el("erroLogin");
+        var botao = el("botaoPrincipal");
+        erro.textContent = "";
+        aviso("");
+
+        var email = el("loginEmail").value.trim();
+        var senha = el("loginSenha").value;
+
+        if (!email) { erro.textContent = "Informe o e-mail."; return; }
+
+        botao.disabled = true;
+
+        try {
+            if (modo === "esqueci") {
+                var r = await api("/api/usuarios/esqueci-senha", { method: "POST", semAuth: true, body: { email: email } });
+                var extra = "";
+                if (r.linkDev) {
+                    extra = '<br><br><b>Modo de desenvolvimento</b> (e-mail não configurado):<br><a href="' + esc(r.linkDev) + '">' + esc(r.linkDev) + "</a>";
+                }
+                aviso(r.mensagem, "ok", esc(r.mensagem) + extra);
+                return;
+            }
+
+            if (!senha) { erro.textContent = "Informe a senha."; return; }
+
+            var corpo = { email: email, senha: senha };
+            var url = "/api/usuarios/login";
+
+            if (modo === "cadastro") {
+                corpo.nome = el("registroNome").value.trim();
+                if (!corpo.nome) { erro.textContent = "Informe seu nome."; return; }
+                if (senha.length < 6) { erro.textContent = "A senha precisa ter pelo menos 6 caracteres."; return; }
+                url = "/api/usuarios/registrar";
+            }
+
+            var auth = await api(url, { method: "POST", semAuth: true, body: corpo });
+            Sessao.salvar(auth);
+            window.location.href = paginaInicialDo(auth.usuario.tipo);
+        } catch (e) {
+            erro.textContent = e.message;
+        } finally {
+            botao.disabled = false;
+        }
+    };
+
+    window.onload = function () {
+        var sessao = Sessao.obter();
+        if (sessao) {
+            window.location.href = paginaInicialDo(sessao.usuario.tipo);
+            return;
+        }
+        localStorage.removeItem("usuario"); // sessao antiga (sem token)
+
+        if (new URLSearchParams(location.search).get("expirou")) {
+            aviso("Sua sessão expirou. Entre novamente.", "aviso");
+        }
+        definirModo("login");
+    };
+</script>
+
+</body>
+</html>

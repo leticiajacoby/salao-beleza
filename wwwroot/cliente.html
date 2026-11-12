@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spa Delas - Cliente</title>
+    <link rel="icon" href="imagens/logo.png">
+    <link rel="stylesheet" href="estilo.css">
+    <link rel="stylesheet" href="comum.css">
+    <style>
+        .passo-num { display:inline-flex; width:28px; height:28px; border-radius:50%; background:var(--rosa-escuro); color:#fff; align-items:center; justify-content:center; font-size:14px; margin-right:8px; }
+        .ag-card { display:grid; grid-template-columns: 1fr auto; gap:14px; align-items:center; background:#fff; border-radius:15px; padding:18px 20px; box-shadow:var(--sombra); margin-bottom:14px; border-left:5px solid var(--rosa); }
+        .ag-card.st-Concluido { border-left-color: var(--ok); }
+        .ag-card.st-Cancelado, .ag-card.st-Faltou { border-left-color:#bbb; }
+        .ag-data { font-weight:bold; color: var(--texto); text-transform:capitalize; }
+        .ag-acoes { display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; }
+        .barb-card { background:#fff; border-radius:15px; padding:18px; box-shadow:var(--sombra); border:2px solid transparent; cursor:default; }
+        .barb-card { position:relative; }
+        .barb-card.escolhivel { cursor:pointer; border:2px dashed #f0b3cf; transition:transform .15s, box-shadow .15s, border-color .15s; }
+        .barb-card.escolhivel:hover { transform:translateY(-2px); border-color:var(--rosa); box-shadow:0 8px 22px rgba(74,29,54,.18); }
+        .barb-card.selecionado { border:2px solid var(--ok, #2e7d52); background:#f3fbf6; }
+        .barb-card .selo-ok { position:absolute; top:-10px; right:-10px; background:var(--ok, #2e7d52); color:#fff; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:bold; box-shadow:0 2px 8px rgba(0,0,0,.25); }
+        .btn-escolher { width:100%; margin-top:10px; }
+        .btn-ok { background:var(--ok, #2e7d52); color:#fff; }
+        .dica-passo { border-radius:12px; padding:12px 16px; margin:0 0 16px; font-weight:bold; }
+        .dica-passo.pendente { background:#ffe3ef; color:#a81e61; border:2px solid #d6307f; animation:balancar 1.6s ease-in-out infinite; }
+        .dica-passo.pronto { background:#e6f6ec; color:#1f6b41; border:2px solid #9bd3b1; }
+        .pulsar { animation:destaque 1.2s ease-out 2; }
+        @keyframes destaque { 0% { box-shadow:0 0 0 0 rgba(214,48,127,.9); } 100% { box-shadow:0 0 0 22px rgba(214,48,127,0); } }
+        @keyframes balancar { 0%,100% { transform:translateX(0); } 50% { transform:translateX(4px); } }
+        .falta-info { margin-top:10px; color:#a81e61; font-size:14px; }
+        @media (prefers-reduced-motion: reduce) { .dica-passo.pendente, .pulsar { animation:none; } }
+        .barb-topo { display:flex; gap:12px; align-items:center; margin-bottom:10px; }
+        .coracao { background:none; font-size:24px; color:var(--vermelho); padding:2px 6px; margin-left:auto; }
+        .progresso { background:#fbe3ec; border-radius:10px; height:14px; overflow:hidden; margin:10px 0; }
+        .progresso > div { background:linear-gradient(90deg,var(--rosa),#f9c6dc); height:100%; transition:width .4s; }
+        .servico-card { background:#fff; border-radius:15px; padding:18px; box-shadow:var(--sombra); display:flex; flex-direction:column; gap:6px; }
+        .servico-card .preco { color:var(--rosa); font-size:22px; font-weight:bold; }
+        .resumo-linha { display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px dashed #f3d4e1; }
+        .resumo-total { font-size:22px; font-weight:bold; color: var(--texto); }
+        .aviso-topo { cursor:pointer; }
+        @media (max-width:650px){ .ag-card{ grid-template-columns:1fr; } .ag-acoes{ justify-content:flex-start; } }
+    </style>
+</head>
+<body class="fundo-generico">
+<div id="areaSistema">
+    <header class="topo" id="cabecalho"></header>
+    <nav class="menu" id="menu"></nav>
+    <main class="conteudo">
+
+        <!-- INÍCIO -->
+        <section class="pagina escondido" id="pagina-inicio">
+            <div class="boas-vindas"><img src="imagens/logo.png" alt=""><div><h2>Olá, <span id="nomeInicio"></span>!</h2><p>Bem-vinda ao Spa Delas. Veja seus próximos horários e agende em poucos cliques.</p></div></div>
+            <div id="areaInicio"><div class="carregando">Carregando…</div></div>
+        </section>
+
+        <!-- AGENDAR -->
+        <section class="pagina escondido" id="pagina-agendar">
+            <div class="titulo-pagina"><h2>Novo agendamento</h2><p>Escolha os serviços, a profissional e um horário livre.</p></div>
+
+            <div class="card"><h3><span class="passo-num">1</span>Serviços</h3>
+                <p class="card-sub">Você pode combinar vários serviços no mesmo horário (ex.: corte + escova).</p>
+                <div id="selServicos" class="chips"></div>
+                <p class="mt negrito" id="totalCombo"></p>
+            </div>
+
+            <div class="card" id="cardBarbeiro"><h3><span class="passo-num">2</span>Escolha a sua profissional</h3>
+                <div id="dicaBarbeiro"></div>
+                <div id="selBarbeiros" class="grade"></div>
+            </div>
+
+            <div class="card"><h3><span class="passo-num">3</span>Dia e horário</h3>
+                <div class="campo" style="max-width:260px"><label for="selData">Dia</label><input type="date" id="selData"></div>
+                <div id="selSlots"><p class="texto-suave">Escolha os serviços, a profissional e o dia para ver os horários livres.</p></div>
+            </div>
+
+            <div class="card"><h3><span class="passo-num">4</span>Desconto (opcional)</h3>
+                <div class="flex" style="align-items:flex-end">
+                    <div class="campo flex-1" style="margin-bottom:0;max-width:320px"><label for="selCupom">Cupom</label><input type="text" id="selCupom" placeholder="Ex.: BEMVINDO10" maxlength="40"></div>
+                    <button type="button" class="btn btn-secundario" id="btnCupom">Aplicar</button>
+                    <button type="button" class="btn btn-link escondido" id="btnCupomRemover">Remover</button>
+                </div>
+                <p id="msgCupom" class="texto-pequeno mt"></p>
+                <div id="areaFidelidade" class="mt"></div>
+            </div>
+
+            <div class="card"><h3><span class="passo-num">5</span>Resumo</h3>
+                <div id="resumo"></div>
+                <div class="mt"><button type="button" class="btn btn-primario" id="btnConfirmar" disabled>Confirmar agendamento</button><p class="falta-info" id="faltaInfo"></p></div>
+            </div>
+        </section>
+
+        <!-- MEUS AGENDAMENTOS -->
+        <section class="pagina escondido" id="pagina-meus">
+            <div class="titulo-pagina"><h2>Meus agendamentos</h2><p>Reagende, cancele, avalie e repita seus atendimentos.</p></div>
+            <div class="abas" id="abasMeus">
+                <button type="button" class="aba ativa" data-aba="proximos">Próximos</button>
+                <button type="button" class="aba" data-aba="historico">Histórico</button>
+                <button type="button" class="aba" data-aba="espera">Lista de espera</button>
+            </div>
+            <div id="listaMeus"></div>
+        </section>
+
+        <!-- BARBEIROS -->
+        <section class="pagina escondido" id="pagina-barbeiros">
+            <div class="titulo-pagina"><h2>Nossas profissionais</h2><p>Conheça a equipe, veja as avaliações e favorite quem você mais gosta.</p></div>
+            <div id="gradeBarbeiros" class="grade"></div>
+        </section>
+
+        <!-- CONTA -->
+        <section class="pagina escondido" id="pagina-conta"><div id="areaConta"></div></section>
+
+    </main>
+</div>
+
+<script src="comum.js"></script>
+<script>
+var usuario = exigirLogin(["Cliente"]);
+
+var S = {
+    servicos: [], barbeiros: [], favoritos: [], agendamentos: [], espera: [], fid: null,
+    sel: { servicoIds: [], barbeiroId: null, data: "", hora: "", cupom: "", fidelidade: false },
+    slots: null, sim: null, abaMeus: "proximos"
+};
+var $ = function (id) { return document.getElementById(id); };
+
+/* ---------- utilidades ---------- */
+function quandoTexto(valor) {
+    var d = new Date(valor);
+    return d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" }) + " às " + horaBR(d);
+}
+function ehProximo(a) { return a.status === "Agendado" && new Date(a.dataHora) > new Date(); }
+function proximos() { return S.agendamentos.filter(ehProximo).sort(function (a, b) { return new Date(a.dataHora) - new Date(b.dataHora); }); }
+function historico() { return S.agendamentos.filter(function (a) { return !ehProximo(a); }).sort(function (a, b) { return new Date(b.dataHora) - new Date(a.dataHora); }); }
+function aAvaliar() { return S.agendamentos.filter(function (a) { return a.status === "Concluido" && !a.avaliacao; }); }
+function ehFavorito(id) { return S.favoritos.indexOf(id) !== -1; }
+
+function valorHtml(a) {
+    var html;
+    if (Number(a.valorDesconto) > 0) {
+        html = '<s class="texto-suave">' + moeda(a.valorServico) + "</s> <b>" + moeda(a.valorFinal) + "</b> ";
+        html += a.usouFidelidade ? '<span class="badge badge-concluido">Grátis (fidelidade)</span>' : '<span class="badge badge-info">Cupom ' + esc(a.cupomCodigo || "") + "</span>";
+    } else {
+        html = "<b>" + moeda(a.valorFinal) + "</b>";
+    }
+    return html;
+}
+
+async function carregarBase() {
+    var pegar = function (url, padrao) { return api(url).catch(function () { return padrao; }); };
+    var r = await Promise.all([
+        pegar("/api/servicos", []), pegar("/api/barbeiros", []), pegar("/api/favoritos", []),
+        pegar("/api/agendamentos", []), pegar("/api/lista-espera", []), pegar("/api/fidelidade", null)
+    ]);
+    S.servicos = r[0]; S.barbeiros = r[1]; S.favoritos = r[2]; S.agendamentos = r[3]; S.espera = r[4]; S.fid = r[5];
+}
+
+/* ---------- cartão de agendamento ---------- */
+function cardAgendamento(a, modo) {
+    var acoes = "";
+    if (modo === "proximos") {
+        acoes = '<button class="btn btn-secundario btn-pequeno" data-acao="reagendar" data-id="' + a.id + '">Reagendar</button>' +
+                '<button class="btn btn-perigo btn-pequeno" data-acao="cancelar" data-id="' + a.id + '">Cancelar</button>';
+    } else if (modo === "historico") {
+        if (a.status === "Concluido" && !a.avaliacao) acoes += '<button class="btn btn-rosa btn-pequeno" data-acao="avaliar" data-id="' + a.id + '">★ Avaliar</button>';
+        acoes += '<button class="btn btn-secundario btn-pequeno" data-acao="repetir" data-id="' + a.id + '">Repetir</button>';
+    }
+    var aval = a.avaliacao ? '<div class="mt texto-pequeno">' + estrelasHtml(a.avaliacao.nota) + (a.avaliacao.comentario ? " — " + esc(a.avaliacao.comentario) : "") + "</div>" : "";
+    return '<div class="ag-card st-' + esc(a.status) + '"><div>' +
+        '<div class="ag-data">' + esc(quandoTexto(a.dataHora)) + " " + badgeStatus(a.status) + "</div>" +
+        '<div class="flex" style="margin:8px 0">' + avatarHtml(a.fotoBarbeiro, a.nomeBarbeiro, 30) + "<span>" + esc(a.nomeBarbeiro) + "</span></div>" +
+        "<div>" + esc(a.nomeServico) + ' <span class="texto-suave texto-pequeno">· ' + duracaoTexto(a.duracaoMinutos) + "</span></div>" +
+        '<div class="mt" style="margin-top:6px">' + valorHtml(a) + "</div>" + aval +
+        '</div><div class="ag-acoes">' + acoes + "</div></div>";
+}
+
+/* ---------- cartão de barbeiro ---------- */
+function cardBarbeiro(b, opcoes) {
+    opcoes = opcoes || {};
+    var fav = ehFavorito(b.id);
+    var botoes = '<a class="btn btn-secundario btn-pequeno" href="perfil.html?id=' + b.id + '" target="_blank" rel="noopener">Ver perfil</a>';
+    if (opcoes.agendar) botoes += ' <button type="button" class="btn btn-primario btn-pequeno" data-agendar-com="' + b.id + '">Agendar com ele</button>';
+    var escolherBtn = opcoes.escolher
+        ? '<button type="button" class="btn btn-escolher ' + (opcoes.selecionado ? "btn-ok" : "btn-primario") + '">' + (opcoes.selecionado ? "✓ Profissional selecionada" : "Escolher " + esc(b.nome.split(" ")[0])) + "</button>" : "";
+    return '<div class="barb-card ' + (opcoes.escolher ? "escolhivel " : "") + (opcoes.selecionado ? "selecionado" : "") + '"' + (opcoes.escolher ? ' data-escolher="' + b.id + '" role="button" tabindex="0" aria-pressed="' + (opcoes.selecionado ? "true" : "false") + '"' : "") + ">" +
+        (opcoes.selecionado ? '<span class="selo-ok" aria-hidden="true">✓</span>' : "") +
+        '<div class="barb-topo">' + avatarHtml(b.fotoUrl, b.nome, 52) +
+        "<div><b>" + esc(b.nome) + "</b><br>" + mediaHtml(b.media, b.totalAvaliacoes) + "</div>" +
+        '<button type="button" class="coracao" data-fav="' + b.id + '" title="' + (fav ? "Remover dos favoritos" : "Favoritar") + '">' + (fav ? "♥" : "♡") + "</button></div>" +
+        '<div class="texto-pequeno texto-suave" style="min-height:18px;margin-bottom:10px">' + esc(b.especialidades || "") + "</div>" +
+        '<div class="flex">' + botoes + "</div>" + escolherBtn + "</div>";
+}
+function barbeirosOrdenados() {
+    return S.barbeiros.slice().sort(function (a, b) {
+        return (ehFavorito(b.id) ? 1 : 0) - (ehFavorito(a.id) ? 1 : 0) || a.nome.localeCompare(b.nome);
+    });
+}
+async function alternarFavorito(id) {
+    var r = await tentar(function () { return api("/api/favoritos/" + id, { method: ehFavorito(id) ? "DELETE" : "POST" }); });
+    if (r) { S.favoritos = r; renderBarbeirosSel(); renderGradeBarbeiros(); if (Paginas.atual() === "inicio") renderInicio(); }
+}
+
+/* ---------- INÍCIO ---------- */
+function renderInicio() {
+    $("nomeInicio").textContent = usuario.nome.split(" ")[0];
+    var prox = proximos();
+    var html = "";
+    var pend = aAvaliar().length;
+    if (pend > 0) {
+        html += '<div class="aviso-caixa aviso aviso-topo" id="avisoAvaliar">⭐ Você tem <b>' + pend + "</b> atendimento(s) para avaliar. Clique aqui e conte como foi!</div>";
+    }
+    var esperaAtiva = S.espera.filter(function (e) { return e.status === "Aguardando"; }).length;
+    var notificadas = S.espera.filter(function (e) { return e.status === "Notificado"; }).length;
+    if (notificadas > 0) html += '<div class="aviso-caixa ok">🔔 Abriu uma vaga na sua lista de espera! Veja as notificações e agende logo.</div>';
+    else if (esperaAtiva > 0) html += '<div class="aviso-caixa info">Você está na lista de espera de ' + esperaAtiva + " dia(s). Avisaremos se abrir uma vaga.</div>";
+
+    html += '<div class="grade-2" style="align-items:start"><div>';
+    html += '<div class="card"><h3>Próximo agendamento</h3>';
+    if (prox.length) html += cardAgendamento(prox[0], "proximos");
+    else html += '<div class="vazio">Você não tem horários marcados.<br><br><button type="button" class="btn btn-primario" data-ir="agendar">Agendar agora</button></div>';
+    html += "</div>";
+    if (prox.length > 1) {
+        html += '<div class="card"><h3>Depois disso</h3>' + prox.slice(1, 4).map(function (a) { return cardAgendamento(a, "proximos"); }).join("") +
+            (prox.length > 4 ? '<button type="button" class="btn btn-link" data-ir="meus">Ver todos</button>' : "") + "</div>";
+    }
+    html += "</div><div>";
+
+    var f = S.fid;
+    if (f) {
+        var falta = f.meta - f.progresso;
+        html += '<div class="card"><h3> Programa de fidelidade</h3>' +
+            '<p class="card-sub">A cada ' + f.meta + " serviços pagos, o próximo é por nossa conta.</p>" +
+            '<div class="progresso"><div style="width:' + Math.round((f.progresso / f.meta) * 100) + '%"></div></div>' +
+            "<p><b>" + f.progresso + " de " + f.meta + "</b> serviços neste ciclo" + (f.gratisDisponiveis > 0 ? "" : " — faltam " + falta + " para o próximo grátis") + ".</p>" +
+            (f.gratisDisponiveis > 0 ? '<p class="mt"><span class="badge badge-concluido">Você tem ' + f.gratisDisponiveis + " serviço(s) grátis!</span></p><button type=\"button\" class=\"btn btn-rosa mt\" data-ir=\"agendar\">Usar agora</button>" : "") + "</div>";
+    }
+    var favs = barbeirosOrdenados().filter(function (b) { return ehFavorito(b.id); });
+    if (favs.length) {
+        html += '<div class="card"><h3>♥ Suas profissionais favoritas</h3>' + favs.map(function (b) {
+            return '<div class="flex flex-entre" style="padding:8px 0">' + '<div class="flex">' + avatarHtml(b.fotoUrl, b.nome, 36) + "<div><b>" + esc(b.nome) + "</b><br>" + mediaHtml(b.media, b.totalAvaliacoes) + "</div></div>" +
+                '<button type="button" class="btn btn-primario btn-pequeno" data-agendar-com="' + b.id + '">Agendar</button></div>';
+        }).join("") + "</div>";
+    }
+    html += "</div></div>";
+
+    html += '<div class="titulo-pagina" style="margin-top:10px"><h2 style="font-size:24px">Serviços disponíveis</h2></div><div class="grade">';
+    if (!S.servicos.length) html += '<div class="vazio">Nenhum serviço disponível no momento.</div>';
+    S.servicos.forEach(function (s) {
+        html += '<div class="servico-card"><b>' + esc(s.nome) + '</b><span class="texto-suave texto-pequeno">⏱ ' + duracaoTexto(s.duracaoMinutos) + '</span><span class="preco">' + moeda(s.preco) + '</span>' +
+            '<button type="button" class="btn btn-primario btn-pequeno" data-agendar-servico="' + s.id + '">Agendar</button></div>';
+    });
+    html += "</div>";
+    $("areaInicio").innerHTML = html;
+}
+
+/* ---------- AGENDAR ---------- */
+function totalCombo() {
+    var l = S.servicos.filter(function (s) { return S.sel.servicoIds.indexOf(s.id) !== -1; });
+    return { itens: l, duracao: l.reduce(function (t, s) { return t + s.duracaoMinutos; }, 0), preco: l.reduce(function (t, s) { return t + s.preco; }, 0) };
+}
+function renderServicosSel() {
+    $("selServicos").innerHTML = S.servicos.map(function (s) {
+        var sel = S.sel.servicoIds.indexOf(s.id) !== -1;
+        return '<button type="button" class="chip ' + (sel ? "selecionado" : "") + '" data-servico="' + s.id + '"><strong>' + (sel ? "✓ " : "") + esc(s.nome) + "</strong><small>" + duracaoTexto(s.duracaoMinutos) + " · " + moeda(s.preco) + "</small></button>";
+    }).join("") || '<div class="vazio">Nenhum serviço disponível.</div>';
+    var t = totalCombo();
+    $("totalCombo").innerHTML = t.itens.length ? "Combo: " + t.itens.length + " serviço(s) · " + duracaoTexto(t.duracao) + " · " + moeda(t.preco) : "";
+}
+function destacarBarbeiros(rolar) {
+    var c = $("cardBarbeiro");
+    c.classList.remove("pulsar"); void c.offsetWidth; c.classList.add("pulsar");
+    if (rolar) c.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+function renderBarbeirosSel() {
+    var escolhido = S.barbeiros.find(function (b) { return b.id === S.sel.barbeiroId; });
+    $("dicaBarbeiro").innerHTML = escolhido
+        ? '<div class="dica-passo pronto">✓ Profissional escolhida: ' + esc(escolhido.nome) + ". Toque em outro para trocar.</div>"
+        : '<div class="dica-passo pendente"> Toque em uma profissional abaixo para escolher. Sem isso não aparecem os horários.</div>';
+    $("selBarbeiros").innerHTML = barbeirosOrdenados().map(function (b) {
+        return cardBarbeiro(b, { escolher: true, selecionado: S.sel.barbeiroId === b.id });
+    }).join("") || '<div class="vazio">Nenhuma profissional disponível.</div>';
+}
+function renderSlots() {
+    var area = $("selSlots"), s = S.sel;
+    if (!s.servicoIds.length || !s.barbeiroId || !s.data) {
+        var faltam = [];
+        if (!s.servicoIds.length) faltam.push("os serviços (passo 1)");
+        if (!s.barbeiroId) faltam.push("a profissional (passo 2)");
+        if (!s.data) faltam.push("o dia");
+        area.innerHTML = '<div class="aviso-caixa aviso">Para ver os horários livres, escolha ' + (faltam.length > 1 ? faltam.slice(0, -1).join(", ") + " e " + faltam[faltam.length - 1] : faltam[0]) + ".</div>" +
+            (!s.barbeiroId ? '<button type="button" class="btn btn-rosa" id="btnIrBarbeiro">Escolher profissional</button>' : "");
+        var ir = $("btnIrBarbeiro"); if (ir) ir.onclick = function () { destacarBarbeiros(true); };
+        return;
+    }
+    if (S.slots === null) { area.innerHTML = '<div class="carregando">Buscando horários…</div>'; return; }
+    if (!S.slots.length) {
+        area.innerHTML = '<div class="aviso-caixa aviso">Sem horários livres neste dia para esse combo. Escolha outro dia ou entre na lista de espera.</div>' +
+            '<button type="button" class="btn btn-rosa" id="btnEspera">🔔 Avisar-me se abrir uma vaga</button>';
+        $("btnEspera").onclick = entrarNaEspera; return;
+    }
+    area.innerHTML = '<div class="slots">' + S.slots.map(function (h) {
+        return '<button type="button" class="slot ' + (s.hora === h ? "selecionado" : "") + '" data-hora="' + h + '">' + h + "</button>";
+    }).join("") + "</div>";
+}
+async function carregarSlots() {
+    var s = S.sel; S.slots = null; s.hora = "";
+    renderSlots(); renderResumo();
+    if (!s.servicoIds.length || !s.barbeiroId || !s.data) return;
+    var chave = s.servicoIds.join(",") + "|" + s.barbeiroId + "|" + s.data;
+    try {
+        var l = await api("/api/agendamentos/horarios-livres?barbeiroId=" + s.barbeiroId + "&data=" + s.data + "&servicoIds=" + s.servicoIds.join(","));
+        if (chave !== S.sel.servicoIds.join(",") + "|" + S.sel.barbeiroId + "|" + S.sel.data) return; // mudou enquanto carregava
+        S.slots = l;
+    } catch (e) { S.slots = []; toast(e.message, "erro"); }
+    renderSlots(); renderResumo();
+}
+async function entrarNaEspera() {
+    var r = await tentar(function () { return api("/api/lista-espera", { method: "POST", body: { barbeiroId: S.sel.barbeiroId, data: S.sel.data, servicoIds: S.sel.servicoIds } }); });
+    if (r) { toast("Pronto! Avisaremos você se abrir uma vaga nesse dia.", "ok"); S.espera = await api("/api/lista-espera").catch(function () { return S.espera; }); }
+}
+async function simular() {
+    var s = S.sel;
+    if (!s.servicoIds.length) { S.sim = null; renderResumo(); renderDesconto(); return; }
+    try { S.sim = await api("/api/agendamentos/simular", { method: "POST", body: { servicoIds: s.servicoIds, cupomCodigo: s.cupom || null, usarFidelidade: s.fidelidade } }); }
+    catch (e) { S.sim = null; toast(e.message, "erro"); }
+    if (S.sim && S.sim.aviso) { // remove o desconto que nao pode ser aplicado
+        $("msgCupom").className = "texto-pequeno mt"; $("msgCupom").style.color = "var(--erro)"; $("msgCupom").textContent = S.sim.aviso;
+        s.cupom = ""; s.fidelidade = false;
+    } else if (s.cupom && S.sim) {
+        $("msgCupom").style.color = "var(--ok)"; $("msgCupom").textContent = "Cupom " + s.cupom + " aplicado: -" + moeda(S.sim.valorDesconto);
+    } else { $("msgCupom").textContent = ""; }
+    renderDesconto(); renderResumo();
+}
+function renderDesconto() {
+    var s = S.sel, f = S.fid;
+    $("btnCupomRemover").classList.toggle("escondido", !s.cupom);
+    if (!s.cupom) $("selCupom").value = s.cupom;
+    $("areaFidelidade").innerHTML = f && f.gratisDisponiveis > 0
+        ? '<label class="check"><input type="checkbox" id="chkFid"' + (s.fidelidade ? " checked" : "") + '> 🎁 Usar meu serviço grátis da fidelidade (' + f.gratisDisponiveis + " disponível)</label>"
+        : '<p class="texto-pequeno texto-suave">Fidelidade: ' + (f ? f.progresso + " de " + f.meta + " serviços para o próximo grátis." : "indisponível.") + "</p>";
+    var chk = $("chkFid");
+    if (chk) chk.onchange = function () { s.fidelidade = chk.checked; if (chk.checked) { s.cupom = ""; $("selCupom").value = ""; $("msgCupom").textContent = ""; } simular(); };
+}
+function renderResumo() {
+    var s = S.sel, t = totalCombo(), sim = S.sim;
+    var b = S.barbeiros.find(function (x) { return x.id === s.barbeiroId; });
+    if (!t.itens.length) { $("resumo").innerHTML = '<p class="texto-suave">Escolha ao menos um serviço.</p>'; $("btnConfirmar").disabled = true; $("faltaInfo").textContent = ""; return; }
+    var desconto = sim ? sim.valorDesconto : 0, final = sim ? sim.valorFinal : t.preco;
+    var html = t.itens.map(function (i) { return '<div class="resumo-linha"><span>' + esc(i.nome) + '</span><span>' + moeda(i.preco) + "</span></div>"; }).join("");
+    html += '<div class="resumo-linha"><span>Duração total</span><span>' + duracaoTexto(t.duracao) + "</span></div>";
+    html += '<div class="resumo-linha"><span>Profissional</span><span>' + (b ? esc(b.nome) : "—") + "</span></div>";
+    html += '<div class="resumo-linha"><span>Data e horário</span><span>' + (s.data && s.hora ? esc(dataBR(lerIsoData(s.data)) + " às " + s.hora) : "—") + "</span></div>";
+    if (desconto > 0) html += '<div class="resumo-linha"><span>Desconto</span><span style="color:var(--ok)">- ' + moeda(desconto) + "</span></div>";
+    html += '<div class="resumo-linha resumo-total"><span>Total</span><span>' + moeda(final) + "</span></div>";
+    $("resumo").innerHTML = html;
+    $("btnConfirmar").disabled = !(s.servicoIds.length && s.barbeiroId && s.data && s.hora);
+    var falta = [];
+    if (!s.barbeiroId) falta.push("escolher a profissional");
+    if (!s.data) falta.push("escolher o dia");
+    else if (s.barbeiroId && !s.hora) falta.push("escolher o horário");
+    $("faltaInfo").textContent = falta.length ? "Falta " + falta.join(" e ") + " para confirmar." : "";
+}
+function renderAgendarTudo() { renderServicosSel(); renderBarbeirosSel(); renderSlots(); renderDesconto(); renderResumo(); $("selData").value = S.sel.data; }
+
+function iniciarAgendamento(opcoes) {
+    opcoes = opcoes || {};
+    var ativos = S.servicos.map(function (s) { return s.id; });
+    var pedidos = opcoes.servicoIds || [];
+    var validos = pedidos.filter(function (id) { return ativos.indexOf(id) !== -1; });
+    if (validos.length < pedidos.length) toast("Alguns serviços não estão mais disponíveis e foram ignorados.", "aviso");
+    var barbOk = opcoes.barbeiroId && S.barbeiros.some(function (b) { return b.id === opcoes.barbeiroId; });
+    if (opcoes.barbeiroId && !barbOk) toast("Essa profissional não está disponível no momento.", "aviso");
+    S.sel = { servicoIds: validos, barbeiroId: barbOk ? opcoes.barbeiroId : null, data: S.sel.data || "", hora: "", cupom: "", fidelidade: false };
+    S.sim = null; $("msgCupom").textContent = "";
+    Paginas.ir("agendar");
+    carregarSlots(); simular();
+    if (validos.length && !S.sel.barbeiroId) setTimeout(function () { destacarBarbeiros(true); }, 250);
+}
+
+async function confirmarAgendamento() {
+    var s = S.sel, botao = $("btnConfirmar");
+    botao.disabled = true;
+    try {
+        await api("/api/agendamentos", { method: "POST", body: { dataHora: s.data + "T" + s.hora + ":00", barbeiroId: s.barbeiroId, servicoIds: s.servicoIds, cupomCodigo: s.cupom || null, usarFidelidade: s.fidelidade } });
+        toast("Agendamento confirmado! 🎉", "ok");
+        S.sel = { servicoIds: [], barbeiroId: null, data: "", hora: "", cupom: "", fidelidade: false }; S.sim = null; S.slots = null;
+        await carregarBase(); $("msgCupom").textContent = "";
+        S.abaMeus = "proximos"; Paginas.ir("meus");
+    } catch (e) {
+        toast(e.message, "erro");
+        if (e.status === 409) carregarSlots(); else botao.disabled = false;
+    }
+}
+
+/* ---------- MEUS AGENDAMENTOS ---------- */
+function renderMeus() {
+    document.querySelectorAll("#abasMeus .aba").forEach(function (b) { b.classList.toggle("ativa", b.getAttribute("data-aba") === S.abaMeus); });
+    var area = $("listaMeus"), html = "";
+    if (S.abaMeus === "proximos") {
+        var l = proximos();
+        html = l.length ? l.map(function (a) { return cardAgendamento(a, "proximos"); }).join("") : '<div class="vazio">Nenhum agendamento futuro.<br><br><button type="button" class="btn btn-primario" data-ir="agendar">Agendar agora</button></div>';
+    } else if (S.abaMeus === "historico") {
+        var h = historico();
+        html = h.length ? h.map(function (a) { return cardAgendamento(a, "historico"); }).join("") : '<div class="vazio">Seu histórico aparecerá aqui.</div>';
+    } else {
+        html = S.espera.length ? S.espera.map(function (e) {
+            return '<div class="ag-card"><div><div class="ag-data">' + esc(new Date(e.data).toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })) + ' <span class="badge ' + (e.status === "Notificado" ? "badge-concluido" : "badge-agendado") + '">' + esc(e.status) + "</span></div>" +
+                "<div class=\"mt\" style=\"margin-top:8px\">Com " + esc(e.nomeBarbeiro) + (e.servicos ? " · " + esc(e.servicos) : "") + "</div>" +
+                '<div class="texto-pequeno texto-suave">' + (e.status === "Notificado" ? "Abriu uma vaga! Agende agora." : "Avisaremos quando abrir uma vaga nesse dia.") + '</div></div><div class="ag-acoes">' +
+                (e.status === "Notificado" ? '<button class="btn btn-primario btn-pequeno" data-espera-agendar="' + e.id + '">Agendar</button>' : "") +
+                '<button class="btn btn-perigo btn-pequeno" data-acao="remover-espera" data-id="' + e.id + '">Remover</button></div></div>';
+        }).join("") : '<div class="vazio">Você não está em nenhuma lista de espera.<br><span class="texto-pequeno">Quando um dia estiver lotado, use "Avisar-me se abrir uma vaga" ao agendar.</span></div>';
+    }
+    area.innerHTML = html;
+}
+
+function abrirReagendar(a) {
+    var estado = { barbeiroId: a.barbeiroId, data: "", hora: "" };
+    var m = abrirModal({
+        titulo: "Reagendar", html:
+            '<p class="texto-suave">Atual: <b>' + esc(quandoTexto(a.dataHora)) + "</b> — " + esc(a.nomeServico) + "</p>" +
+            '<div class="campo mt"><label>Profissional</label><select id="rgBarb">' + S.barbeiros.map(function (b) { return '<option value="' + b.id + '"' + (b.id === a.barbeiroId ? " selected" : "") + ">" + esc(b.nome) + "</option>"; }).join("") + "</select></div>" +
+            '<div class="campo"><label>Novo dia</label><input type="date" id="rgData" min="' + isoData(new Date()) + '"></div><div id="rgSlots"></div>',
+        botoes: [
+            { rotulo: "Voltar", classe: "btn-secundario", fechar: true },
+            { rotulo: "Confirmar novo horário", classe: "btn-primario", aoClicar: async function (mm) {
+                if (!estado.hora) { toast("Escolha um horário livre.", "erro"); return; }
+                try {
+                    await api("/api/agendamentos/" + a.id + "/reagendar", { method: "PUT", body: { dataHora: estado.data + "T" + estado.hora + ":00", barbeiroId: estado.barbeiroId } });
+                    toast("Agendamento reagendado!", "ok"); mm.fechar(); await carregarBase(); renderMeus(); if (Paginas.atual() === "inicio") renderInicio();
+                } catch (e) { toast(e.message, "erro"); }
+            } }
+        ]
+    });
+    async function buscar() {
+        estado.hora = ""; var area = m.corpo.querySelector("#rgSlots");
+        estado.barbeiroId = Number(m.corpo.querySelector("#rgBarb").value); estado.data = m.corpo.querySelector("#rgData").value;
+        if (!estado.data) { area.innerHTML = ""; return; }
+        area.innerHTML = '<div class="carregando">Buscando…</div>';
+        try {
+            var l = await api("/api/agendamentos/horarios-livres?barbeiroId=" + estado.barbeiroId + "&data=" + estado.data + "&duracao=" + a.duracaoMinutos + "&ignorarAgendamentoId=" + a.id);
+            area.innerHTML = l.length ? '<div class="slots">' + l.map(function (h) { return '<button type="button" class="slot" data-h="' + h + '">' + h + "</button>"; }).join("") + "</div>" : '<div class="aviso-caixa aviso">Sem horários livres nesse dia.</div>';
+            area.querySelectorAll("[data-h]").forEach(function (b) {
+                b.onclick = function () { estado.hora = b.getAttribute("data-h"); area.querySelectorAll(".slot").forEach(function (x) { x.classList.remove("selecionado"); }); b.classList.add("selecionado"); };
+            });
+        } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+    }
+    m.corpo.querySelector("#rgBarb").onchange = buscar; m.corpo.querySelector("#rgData").onchange = buscar;
+}
+
+function abrirAvaliar(a) {
+    var seletor;
+    var m = abrirModal({
+        titulo: "Avaliar atendimento", html:
+            "<p>" + esc(a.nomeServico) + " com <b>" + esc(a.nomeBarbeiro) + "</b></p><div id=\"avEstrelas\" class=\"mt\"></div>" +
+            '<div class="campo mt"><label>Comentário (opcional)</label><textarea id="avTexto" maxlength="500"></textarea></div>',
+        botoes: [
+            { rotulo: "Voltar", classe: "btn-secundario", fechar: true },
+            { rotulo: "Enviar avaliação", classe: "btn-primario", aoClicar: async function (mm) {
+                if (!seletor.valor()) { toast("Escolha de 1 a 5 estrelas.", "erro"); return; }
+                try {
+                    await api("/api/avaliacoes", { method: "POST", body: { agendamentoId: a.id, nota: seletor.valor(), comentario: mm.corpo.querySelector("#avTexto").value } });
+                    toast("Obrigado pela avaliação!", "ok"); mm.fechar(); await carregarBase(); renderMeus();
+                } catch (e) { toast(e.message, "erro"); }
+            } }
+        ]
+    });
+    seletor = seletorEstrelas(m.corpo.querySelector("#avEstrelas"), 0);
+}
+
+async function acaoAgendamento(acao, id) {
+    var a = S.agendamentos.find(function (x) { return x.id === id; });
+    if (acao === "reagendar" && a) return abrirReagendar(a);
+    if (acao === "avaliar" && a) return abrirAvaliar(a);
+    if (acao === "repetir" && a) return iniciarAgendamento({ servicoIds: a.servicos.map(function (s) { return s.servicoId; }), barbeiroId: a.barbeiroId });
+    if (acao === "cancelar" && a) {
+        if (!(await confirmar({ titulo: "Cancelar agendamento", mensagem: "Cancelar " + a.nomeServico + " em " + quandoTexto(a.dataHora) + "?", textoConfirmar: "Cancelar horário", textoCancelar: "Manter", perigo: true }))) return;
+        var r = await tentar(function () { return api("/api/agendamentos/" + id + "/cancelar", { method: "PUT" }); });
+        if (r) { toast("Agendamento cancelado.", "ok"); await carregarBase(); renderMeus(); if (Paginas.atual() === "inicio") renderInicio(); }
+    }
+    if (acao === "remover-espera") {
+        var ok = await tentar(function () { return api("/api/lista-espera/" + id, { method: "DELETE" }); });
+        if (ok !== undefined) { S.espera = S.espera.filter(function (e) { return e.id !== id; }); renderMeus(); toast("Removido da lista de espera.", "ok"); }
+    }
+}
+
+function renderGradeBarbeiros() {
+    $("gradeBarbeiros").innerHTML = barbeirosOrdenados().map(function (b) { return cardBarbeiro(b, { agendar: true }); }).join("") || '<div class="vazio">Nenhuma profissional disponível.</div>';
+}
+
+/* ---------- eventos (delegação) ---------- */
+document.addEventListener("click", function (ev) {
+    var t = ev.target.closest("button, a, [data-escolher], [data-agendar-com], .aviso-topo"); if (!t) return;
+    var d = function (n) { return t.getAttribute(n); };
+    if (t.id === "avisoAvaliar" || t.classList.contains("aviso-topo")) { S.abaMeus = "historico"; Paginas.ir("meus"); return; }
+    if (d("data-ir")) return Paginas.ir(d("data-ir"));
+    if (d("data-acao")) return acaoAgendamento(d("data-acao"), Number(d("data-id")));
+    if (d("data-fav")) return alternarFavorito(Number(d("data-fav")));
+    if (d("data-agendar-com")) return iniciarAgendamento({ servicoIds: S.sel.servicoIds, barbeiroId: Number(d("data-agendar-com")) });
+    if (d("data-agendar-servico")) return iniciarAgendamento({ servicoIds: [Number(d("data-agendar-servico"))] });
+    if (d("data-espera-agendar")) return Paginas.ir("agendar");
+    if (d("data-aba")) { S.abaMeus = d("data-aba"); return renderMeus(); }
+    if (d("data-servico")) {
+        var id = Number(d("data-servico")), i = S.sel.servicoIds.indexOf(id);
+        if (i === -1) S.sel.servicoIds.push(id); else S.sel.servicoIds.splice(i, 1);
+        renderServicosSel(); carregarSlots(); simular();
+        if (i === -1 && !S.sel.barbeiroId) destacarBarbeiros(false);
+        return;
+    }
+    var esc1 = t.closest("[data-escolher]");
+    if (esc1 && !ev.target.closest("[data-fav], a")) { S.sel.barbeiroId = Number(esc1.getAttribute("data-escolher")); renderBarbeirosSel(); carregarSlots(); return; }
+    if (d("data-hora")) { S.sel.hora = d("data-hora"); renderSlots(); renderResumo(); return; }
+});
+$("selBarbeiros").addEventListener("keydown", function (ev) {
+    var c = ev.target.closest("[data-escolher]");
+    if (c && ev.target === c && (ev.key === "Enter" || ev.key === " ")) { ev.preventDefault(); c.click(); }
+});
+$("selData").onchange = function () { S.sel.data = this.value; carregarSlots(); };
+$("btnCupom").onclick = function () {
+    var v = $("selCupom").value.trim().toUpperCase();
+    if (!v) { toast("Digite o código do cupom.", "erro"); return; }
+    S.sel.cupom = v; S.sel.fidelidade = false; simular();
+};
+$("btnCupomRemover").onclick = function () { S.sel.cupom = ""; $("selCupom").value = ""; $("msgCupom").textContent = ""; simular(); };
+$("btnConfirmar").onclick = confirmarAgendamento;
+
+/* ---------- inicialização ---------- */
+async function iniciar() {
+    montarCabecalho(usuario);
+    $("selData").min = isoData(new Date());
+    Paginas.aoAbrir("inicio", async function () { await carregarBase(); renderInicio(); });
+    Paginas.aoAbrir("agendar", function () { renderAgendarTudo(); });
+    Paginas.aoAbrir("meus", async function () { renderMeus(); await carregarBase(); renderMeus(); });
+    Paginas.aoAbrir("barbeiros", async function () { await carregarBase(); renderGradeBarbeiros(); });
+    Paginas.aoAbrir("conta", function () { montarConta($("areaConta")); });
+    await carregarBase();
+    Paginas.menu([{ id: "inicio", rotulo: "Início" }, { id: "agendar", rotulo: "Agendar" }, { id: "meus", rotulo: "Meus agendamentos" }, { id: "barbeiros", rotulo: "Profissionais" }, { id: "conta", rotulo: "Minha conta" }]);
+
+    var p = new URLSearchParams(location.search);
+    if (p.get("barbeiro") || p.get("servico")) {
+        iniciarAgendamento({ barbeiroId: Number(p.get("barbeiro")) || null, servicoIds: p.get("servico") ? [Number(p.get("servico"))] : [] });
+    }
+}
+if (usuario) iniciar();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+services:
+  banco:
+    image: postgres:16
+    container_name: salao_postgres
+    environment:
+      POSTGRES_DB: salaodb
+      POSTGRES_USER: jorge
+      POSTGRES_PASSWORD: jorge123
+    ports:
+      - "5433:5432"
+    volumes:
+      - dados_salao:/var/lib/postgresql/data
+
+volumes:
+  dados_salao:

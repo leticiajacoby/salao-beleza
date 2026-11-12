@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spa Delas - Nova senha</title>
+    <link rel="icon" href="imagens/logo.png">
+    <link rel="stylesheet" href="estilo.css">
+    <link rel="stylesheet" href="comum.css">
+</head>
+<body>
+
+<div id="areaLogin">
+    <div class="login-container">
+
+        <div class="login-imagem">
+            <div class="login-overlay">
+                <span class="marca"><img src="imagens/logo-branca.png" alt=""><b>Spa Delas</b></span>
+                <p>Realce a sua beleza.</p>
+            </div>
+        </div>
+
+        <form class="login-formulario" id="formulario" novalidate>
+            <span class="marca marca-rosa"><img src="imagens/logo.png" alt=""><b>Spa Delas</b></span>
+
+            <h2>Criar nova senha</h2>
+            <p class="subtitulo">Escolha uma nova senha para a sua conta.</p>
+
+            <div id="avisoRedefinir"></div>
+
+            <div id="areaCampos">
+                <div class="campo">
+                    <label for="novaSenha">Nova senha</label>
+                    <div class="com-botao">
+                        <input type="password" id="novaSenha" autocomplete="new-password" maxlength="100">
+                        <button type="button" id="verSenha" aria-label="Mostrar ou ocultar a senha">👁</button>
+                    </div>
+                    <small>Mínimo de 6 caracteres.</small>
+                </div>
+
+                <div class="campo">
+                    <label for="confirmaSenha">Confirmar nova senha</label>
+                    <input type="password" id="confirmaSenha" autocomplete="new-password" maxlength="100">
+                </div>
+
+                <button type="submit" id="botaoSalvar">Salvar nova senha</button>
+            </div>
+
+            <p class="trocar-cadastro">
+                <a href="index.html" style="color:var(--rosa)">Voltar ao login</a>
+            </p>
+
+            <p id="erroRedefinir" role="alert" style="color:var(--vermelho);text-align:center;margin-top:15px;min-height:20px"></p>
+        </form>
+    </div>
+</div>
+
+<script src="comum.js"></script>
+<script>
+    var token = new URLSearchParams(location.search).get("token") || "";
+
+    function el(id) { return document.getElementById(id); }
+
+    if (!token) {
+        el("areaCampos").classList.add("escondido");
+        el("avisoRedefinir").innerHTML = '<div class="aviso-caixa erro">Link inválido. Peça um novo link em "Esqueci minha senha".</div>';
+    }
+
+    el("verSenha").onclick = function () {
+        var c = el("novaSenha");
+        c.type = c.type === "password" ? "text" : "password";
+    };
+
+    el("formulario").onsubmit = async function (ev) {
+        ev.preventDefault();
+        var erro = el("erroRedefinir");
+        erro.textContent = "";
+
+        var nova = el("novaSenha").value;
+        var confirma = el("confirmaSenha").value;
+
+        if (nova.length < 6) { erro.textContent = "A senha precisa ter pelo menos 6 caracteres."; return; }
+        if (nova !== confirma) { erro.textContent = "A confirmação não confere com a nova senha."; return; }
+
+        el("botaoSalvar").disabled = true;
+        try {
+            var r = await api("/api/usuarios/redefinir-senha", { method: "POST", semAuth: true, body: { token: token, novaSenha: nova } });
+            el("areaCampos").classList.add("escondido");
+            el("avisoRedefinir").innerHTML = '<div class="aviso-caixa ok">' + esc(r.mensagem) + ' <a href="index.html">Ir para o login</a></div>';
+        } catch (e) {
+            erro.textContent = e.message;
+        } finally {
+            el("botaoSalvar").disabled = false;
+        }
+    };
+</script>
+
+</body>
+</html>

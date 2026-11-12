@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spa Delas - Profissional</title>
+    <link rel="icon" href="imagens/logo.png">
+    <link rel="stylesheet" href="estilo.css">
+    <link rel="stylesheet" href="comum.css">
+    <style>
+        .ag-linha { display:grid; grid-template-columns:70px 1fr auto; gap:14px; align-items:center; padding:14px 0; border-bottom:1px solid #fbe3ec; }
+        .ag-linha:last-child { border-bottom:none; }
+        .ag-hora { font-size:20px; font-weight:bold; color: var(--texto); }
+        .ag-acoes { display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end; }
+        .galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:12px; }
+        .galeria figure { margin:0; position:relative; border-radius:12px; overflow:hidden; background:#fff; box-shadow:var(--sombra); }
+        .galeria img { width:100%; height:150px; object-fit:cover; display:block; }
+        .galeria figcaption { padding:6px 10px; font-size:13px; color:#555; min-height:30px; }
+        .galeria .remover { position:absolute; top:6px; right:6px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; width:28px; height:28px; padding:0; line-height:1; }
+        .aval-item { padding:12px 0; border-bottom:1px solid #fbe3ec; }
+        @media (max-width:650px){ .ag-linha{ grid-template-columns:60px 1fr; } .ag-acoes{ grid-column:1 / -1; justify-content:flex-start; } }
+    </style>
+</head>
+<body>
+<div id="areaSistema">
+    <header class="topo" id="cabecalho"></header>
+    <nav class="menu" id="menu"></nav>
+    <main class="conteudo">
+
+        <section class="pagina escondido" id="pagina-inicio">
+            <div class="titulo-pagina"><h2>Olá, <span id="nomeInicio"></span>!</h2><p>Sua agenda de hoje e o resumo do mês.</p></div>
+            <div id="areaInicio"><div class="carregando">Carregando…</div></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-agenda">
+            <div class="titulo-pagina"><h2>Agenda</h2><p>Toque em um horário para ver detalhes, concluir ou registrar falta.</p></div>
+            <div class="card"><div id="calendario"></div></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-ganhos">
+            <div class="titulo-pagina"><h2>Meus ganhos</h2><p>Sua comissão sobre os atendimentos do mês.</p></div>
+            <div class="card">
+                <div class="flex" style="align-items:flex-end">
+                    <div class="campo" style="margin-bottom:0"><label for="mesGanhos">Mês</label><input type="month" id="mesGanhos"></div>
+                </div>
+            </div>
+            <div id="areaGanhos"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-horarios">
+            <div class="titulo-pagina"><h2>Horários e folgas</h2><p>Defina seu expediente. Os clientes só veem horários dentro dele.</p></div>
+            <div id="areaHorarios"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-perfil">
+            <div class="titulo-pagina"><h2>Meu perfil público</h2><p>É isso que os clientes veem ao escolher uma profissional.</p></div>
+            <div id="areaPerfil"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-avaliacoes">
+            <div class="titulo-pagina"><h2>Avaliações</h2><p>O que os clientes acharam do seu atendimento.</p></div>
+            <div id="areaAvaliacoes"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-conta"><div id="areaConta"></div></section>
+    </main>
+</div>
+
+<script src="comum.js"></script>
+<script src="calendario.js"></script>
+<script src="horarios.js"></script>
+<script>
+var usuario = exigirLogin(["Barbeiro"]);
+var $ = function (id) { return document.getElementById(id); };
+var cal = null;
+
+function resumoAgendamento(a) {
+    return esc(a.nomeCliente) + " — " + esc(a.nomeServico) + " (" + duracaoTexto(a.duracaoMinutos) + ")";
+}
+function jaPassou(a) { return new Date(a.dataHora) <= new Date(); }
+
+/* ---------- ações sobre um agendamento ---------- */
+async function mudarStatus(a, status) {
+    var r = await tentar(function () { return api("/api/agendamentos/" + a.id + "/status", { method: "PUT", body: { status: status } }); });
+    if (r) { toast(status === "Concluido" ? "Atendimento concluído!" : "Falta registrada.", "ok"); await recarregarTudo(); }
+}
+async function cancelarAg(a) {
+    if (!(await confirmar({ titulo: "Cancelar atendimento", mensagem: "Cancelar o horário de " + a.nomeCliente + " (" + dataHoraBR(new Date(a.dataHora)) + ")? O cliente será avisado.", textoConfirmar: "Cancelar horário", textoCancelar: "Manter", perigo: true }))) return;
+    var r = await tentar(function () { return api("/api/agendamentos/" + a.id + "/cancelar", { method: "PUT" }); });
+    if (r) { toast("Horário cancelado.", "ok"); await recarregarTudo(); }
+}
+function botoesAcao(a) {
+    if (a.status !== "Agendado") return "";
+    var h = "";
+    h += '<button class="btn btn-primario btn-pequeno" data-st="Concluido" data-id="' + a.id + '">✓ Concluído</button>';
+    if (jaPassou(a)) h += '<button class="btn btn-secundario btn-pequeno" data-st="Faltou" data-id="' + a.id + '">Faltou</button>';
+    h += '<button class="btn btn-perigo btn-pequeno" data-cancelar="' + a.id + '">Cancelar</button>';
+    return h;
+}
+function abrirDetalhe(a) {
+    var m = abrirModal({
+        titulo: "Atendimento", html:
+            '<div class="flex">' + avatarHtml(a.fotoCliente, a.nomeCliente, 48) + "<div><b>" + esc(a.nomeCliente) + "</b><br>" + badgeStatus(a.status) + "</div></div>" +
+            '<div class="resumo-linha mt" style="display:flex;justify-content:space-between"><span>Quando</span><b>' + esc(dataHoraBR(new Date(a.dataHora))) + "</b></div>" +
+            '<div style="display:flex;justify-content:space-between;margin-top:6px"><span>Serviços</span><b>' + esc(a.nomeServico) + "</b></div>" +
+            '<div style="display:flex;justify-content:space-between;margin-top:6px"><span>Duração</span><b>' + duracaoTexto(a.duracaoMinutos) + "</b></div>" +
+            '<div style="display:flex;justify-content:space-between;margin-top:6px"><span>Valor pago pelo cliente</span><b>' + moeda(a.valorFinal) + "</b></div>" +
+            '<div style="display:flex;justify-content:space-between;margin-top:6px"><span>Sua comissão</span><b style="color:var(--ok)">' + moeda(a.valorBarbeiro) + "</b></div>" +
+            (a.cupomCodigo ? '<div class="texto-pequeno texto-suave mt">Cupom ' + esc(a.cupomCodigo) + "</div>" : "") +
+            (a.usouFidelidade ? '<div class="texto-pequeno texto-suave mt">Serviço grátis da fidelidade</div>' : "") +
+            (a.avaliacao ? '<div class="mt">' + estrelasHtml(a.avaliacao.nota) + (a.avaliacao.comentario ? "<br>" + esc(a.avaliacao.comentario) : "") + "</div>" : ""),
+        botoes: [{ rotulo: "Fechar", classe: "btn-secundario", fechar: true }].concat(
+            a.status === "Agendado" ? [
+                { rotulo: "Cancelar horário", classe: "btn-perigo", aoClicar: function (mm) { mm.fechar(); cancelarAg(a); } },
+                jaPassou(a) ? { rotulo: "Faltou", classe: "btn-secundario", aoClicar: function (mm) { mm.fechar(); mudarStatus(a, "Faltou"); } } : null,
+                { rotulo: "Concluir", classe: "btn-primario", aoClicar: function (mm) { mm.fechar(); mudarStatus(a, "Concluido"); } }
+            ].filter(Boolean) : [])
+    });
+}
+
+/* ---------- INÍCIO ---------- */
+function mesAtual() { var d = new Date(); return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0"); }
+async function renderInicio() {
+    $("nomeInicio").textContent = usuario.nome.split(" ")[0];
+    var hoje = new Date(), ini = isoData(hoje) + "T00:00:00", fim = isoData(somarDias(hoje, 1)) + "T00:00:00";
+    var r = await Promise.all([
+        api("/api/agendamentos?de=" + ini + "&ate=" + fim).catch(function () { return []; }),
+        api("/api/barbeiros/" + usuario.barbeiroId + "/ganhos?mes=" + mesAtual()).catch(function () { return null; }),
+        api("/api/barbeiros/" + usuario.barbeiroId + "/perfil").catch(function () { return null; })
+    ]);
+    var ags = r[0].filter(function (a) { return a.status !== "Cancelado"; }), g = r[1], p = r[2];
+    var restantes = ags.filter(function (a) { return a.status === "Agendado"; }).length;
+    var html = '<div class="grade-kpi">' +
+        '<div class="kpi"><span>Hoje</span><b>' + ags.length + '</b><small>' + restantes + " restante(s)</small></div>" +
+        '<div class="kpi"><span>Ganho no mês</span><b>' + moeda(g ? g.totalRecebido : 0) + "</b><small>+ " + moeda(g ? g.totalPrevisto : 0) + " previsto</small></div>" +
+        '<div class="kpi"><span>Concluídos no mês</span><b>' + (g ? g.concluidos : 0) + "</b><small>" + (g ? g.faltas : 0) + " falta(s)</small></div>" +
+        '<div class="kpi"><span>Minha nota</span><b>' + (p && p.totalAvaliacoes ? Number(p.media).toFixed(1).replace(".", ",") + " ★" : "—") + "</b><small>" + (p ? p.totalAvaliacoes : 0) + " avaliação(ões)</small></div></div>";
+    html += '<div class="card"><h3>Agenda de hoje</h3>';
+    if (!ags.length) html += '<div class="vazio">Nenhum atendimento hoje. 🌿</div>';
+    ags.forEach(function (a) {
+        html += '<div class="ag-linha"><div class="ag-hora">' + horaBR(new Date(a.dataHora)) + "</div><div><b>" + esc(a.nomeCliente) + "</b> " + badgeStatus(a.status) +
+            '<br><span class="texto-suave texto-pequeno">' + esc(a.nomeServico) + " · " + duracaoTexto(a.duracaoMinutos) + " · comissão " + moeda(a.valorBarbeiro) + '</span></div><div class="ag-acoes">' + botoesAcao(a) + "</div></div>";
+    });
+    html += "</div>";
+    $("areaInicio").innerHTML = html;
+    $("areaInicio").onclick = function (ev) { delegarAcoes(ev, r[0]); };
+}
+function delegarAcoes(ev, lista) {
+    var t = ev.target.closest("button"); if (!t) return;
+    var achar = function (id) { return lista.find(function (x) { return x.id === Number(id); }); };
+    if (t.getAttribute("data-st")) mudarStatus(achar(t.getAttribute("data-id")), t.getAttribute("data-st"));
+    else if (t.getAttribute("data-cancelar")) cancelarAg(achar(t.getAttribute("data-cancelar")));
+}
+
+/* ---------- GANHOS ---------- */
+async function renderGanhos() {
+    var mes = $("mesGanhos").value || mesAtual(); $("mesGanhos").value = mes;
+    var area = $("areaGanhos"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    var partes = mes.split("-").map(Number), ini = mes + "-01T00:00:00";
+    var prox = new Date(partes[0], partes[1], 1), fim = isoData(prox) + "T00:00:00";
+    try {
+        var r = await Promise.all([api("/api/barbeiros/" + usuario.barbeiroId + "/ganhos?mes=" + mes), api("/api/agendamentos?de=" + ini + "&ate=" + fim)]);
+        var g = r[0], l = r[1].filter(function (a) { return a.status === "Concluido"; }).sort(function (a, b) { return new Date(b.dataHora) - new Date(a.dataHora); });
+        var html = '<div class="grade-kpi">' +
+            '<div class="kpi"><span>Recebido</span><b>' + moeda(g.totalRecebido) + "</b><small>" + g.concluidos + " atendimento(s)</small></div>" +
+            '<div class="kpi"><span>Previsto</span><b>' + moeda(g.totalPrevisto) + "</b><small>" + g.agendados + " agendado(s)</small></div>" +
+            '<div class="kpi"><span>Faltas</span><b>' + g.faltas + "</b><small>no mês</small></div>" +
+            '<div class="kpi"><span>Cancelados</span><b>' + g.cancelados + "</b><small>no mês</small></div></div>";
+        html += '<div class="card"><h3>Atendimentos concluídos</h3>';
+        if (!l.length) html += '<div class="vazio">Nenhum atendimento concluído neste mês.</div>';
+        else html += '<div class="tabela-rolagem"><table><thead><tr><th>Data</th><th>Cliente</th><th>Serviço</th><th>Cliente pagou</th><th>Sua comissão</th></tr></thead><tbody>' +
+            l.map(function (a) { return "<tr><td>" + esc(dataHoraBR(new Date(a.dataHora))) + "</td><td>" + esc(a.nomeCliente) + "</td><td>" + esc(a.nomeServico) + "</td><td>" + moeda(a.valorFinal) + "</td><td><b>" + moeda(a.valorBarbeiro) + "</b></td></tr>"; }).join("") +
+            '</tbody><tfoot><tr><td colspan="4"><b>Total</b></td><td><b>' + moeda(g.totalRecebido) + "</b></td></tr></tfoot></table></div>";
+        area.innerHTML = html + "</div>";
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+
+/* ---------- PERFIL ---------- */
+async function renderPerfil() {
+    var area = $("areaPerfil"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    var p;
+    try { p = await api("/api/barbeiros/" + usuario.barbeiroId + "/perfil"); } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; return; }
+    area.innerHTML =
+        '<div class="card"><h3>Sobre você</h3>' +
+        '<div class="campo"><label for="pfEsp">Especialidades</label><input id="pfEsp" maxlength="200" placeholder="Ex.: Mechas, escova, manicure" value="' + esc(p.especialidades || "") + '"></div>' +
+        '<div class="campo"><label for="pfBio">Apresentação</label><textarea id="pfBio" maxlength="1000" placeholder="Conte um pouco sobre seu trabalho">' + esc(p.bio || "") + "</textarea></div>" +
+        '<button type="button" class="btn btn-primario" id="pfSalvar">Salvar perfil</button> ' +
+        '<a class="btn btn-secundario" href="perfil.html?id=' + usuario.barbeiroId + '" target="_blank" rel="noopener">Ver como o cliente vê</a></div>' +
+        '<div class="card"><h3>Portfólio de trabalhos <small class="texto-suave">(' + p.fotos.length + " de 12)</small></h3>" +
+        '<p class="card-sub">Mostre seus melhores trabalhos. JPG, PNG ou WebP de até 3 MB.</p>' +
+        '<div class="flex" style="align-items:flex-end;margin-bottom:16px"><div class="campo" style="margin-bottom:0"><label for="ptArq">Foto</label><input type="file" id="ptArq" accept="image/jpeg,image/png,image/webp"></div>' +
+        '<div class="campo flex-1" style="margin-bottom:0"><label for="ptLeg">Legenda (opcional)</label><input id="ptLeg" maxlength="100"></div>' +
+        '<button type="button" class="btn btn-rosa" id="ptEnviar"' + (p.fotos.length >= 12 ? " disabled" : "") + ">Adicionar</button></div>" +
+        (p.fotos.length ? '<div class="galeria">' + p.fotos.map(function (f) {
+            return "<figure><img src=\"" + esc(f.url) + "\" alt=\"" + esc(f.legenda || "Trabalho") + "\"><button type=\"button\" class=\"remover\" data-foto=\"" + f.id + "\" title=\"Remover\">×</button><figcaption>" + esc(f.legenda || "") + "</figcaption></figure>";
+        }).join("") + "</div>" : '<div class="vazio">Ainda sem fotos no portfólio.</div>') + "</div>";
+
+    $("pfSalvar").onclick = async function () {
+        var r = await tentar(function () { return api("/api/barbeiros/" + usuario.barbeiroId + "/perfil", { method: "PUT", body: { especialidades: $("pfEsp").value.trim(), bio: $("pfBio").value.trim() } }); });
+        if (r) toast("Perfil salvo!", "ok");
+    };
+    $("ptEnviar").onclick = async function () {
+        var arq = $("ptArq").files[0];
+        if (!arq) { toast("Escolha uma imagem.", "erro"); return; }
+        if (arq.size > 3 * 1024 * 1024) { toast("A imagem deve ter até 3 MB.", "erro"); return; }
+        var fd = new FormData(); fd.append("arquivo", arq); fd.append("legenda", $("ptLeg").value.trim());
+        var r = await tentar(function () { return api("/api/barbeiros/" + usuario.barbeiroId + "/portfolio", { method: "POST", body: fd }); });
+        if (r) { toast("Foto adicionada!", "ok"); renderPerfil(); }
+    };
+    area.onclick = async function (ev) {
+        var b = ev.target.closest("[data-foto]"); if (!b) return;
+        if (!(await confirmar({ titulo: "Remover foto", mensagem: "Remover esta foto do portfólio?", textoConfirmar: "Remover", perigo: true }))) return;
+        var r = await tentar(function () { return api("/api/barbeiros/" + usuario.barbeiroId + "/portfolio/" + b.getAttribute("data-foto"), { method: "DELETE" }); });
+        if (r !== undefined) { toast("Foto removida.", "ok"); renderPerfil(); }
+    };
+}
+
+/* ---------- AVALIAÇÕES ---------- */
+async function renderAvaliacoes() {
+    var area = $("areaAvaliacoes"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    try {
+        var p = await api("/api/barbeiros/" + usuario.barbeiroId + "/perfil");
+        area.innerHTML = '<div class="card"><div class="flex"><div style="font-size:40px;font-weight:bold;color: var(--texto)">' + (p.totalAvaliacoes ? Number(p.media).toFixed(1).replace(".", ",") : "—") + "</div><div>" + mediaHtml(p.media, p.totalAvaliacoes) + "</div></div></div>" +
+            '<div class="card">' + (p.avaliacoes.length ? p.avaliacoes.map(function (a) {
+                return '<div class="aval-item">' + estrelasHtml(a.nota) + " <b>" + esc(a.nomeCliente) + '</b> <span class="texto-suave texto-pequeno">' + esc(dataBR(new Date(a.data))) + "</span>" + (a.comentario ? "<p>" + esc(a.comentario) + "</p>" : "") + "</div>";
+            }).join("") : '<div class="vazio">Você ainda não recebeu avaliações.</div>') + "</div>";
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+
+async function recarregarTudo() {
+    if (cal) cal.recarregar();
+    if (Paginas.atual() === "inicio") await renderInicio();
+    if (Paginas.atual() === "ganhos") await renderGanhos();
+}
+
+function iniciar() {
+    montarCabecalho(usuario);
+    Paginas.aoAbrir("inicio", renderInicio);
+    Paginas.aoAbrir("agenda", function () {
+        if (!cal) cal = Calendario.montar($("calendario"), {
+            modo: window.innerWidth < 700 ? "dia" : "semana", data: new Date(), horaInicio: 7, horaFim: 21,
+            buscar: function (de, ate) { return api("/api/agendamentos?de=" + de + "&ate=" + ate); },
+            aoClicar: abrirDetalhe
+        }); else cal.recarregar();
+    });
+    Paginas.aoAbrir("ganhos", renderGanhos);
+    Paginas.aoAbrir("horarios", function () { EditorHorarios.montar($("areaHorarios"), usuario.barbeiroId); });
+    Paginas.aoAbrir("perfil", renderPerfil);
+    Paginas.aoAbrir("avaliacoes", renderAvaliacoes);
+    Paginas.aoAbrir("conta", function () { montarConta($("areaConta")); });
+    $("mesGanhos").value = mesAtual(); $("mesGanhos").onchange = renderGanhos;
+    Paginas.menu([{ id: "inicio", rotulo: "Início" }, { id: "agenda", rotulo: "Agenda" }, { id: "ganhos", rotulo: "Ganhos" }, { id: "horarios", rotulo: "Horários e folgas" }, { id: "perfil", rotulo: "Meu perfil" }, { id: "avaliacoes", rotulo: "Avaliações" }, { id: "conta", rotulo: "Minha conta" }]);
+}
+if (usuario) iniciar();
+</script>
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Perfil da profissional - Spa Delas</title>
+    <link rel="icon" href="imagens/logo.png">
+    <link rel="stylesheet" href="estilo.css">
+    <link rel="stylesheet" href="comum.css">
+    <style>
+        body { background:var(--creme, #fff1f6); }
+        .pf-topo { background:linear-gradient(135deg,#e0468f,#a81e61); color:#fff; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; }
+        .pf-topo a { color:#fff; text-decoration:none; font-weight:bold; }
+        .pf-wrap { max-width:900px; margin:0 auto; padding:24px 16px 60px; }
+        .pf-cab { display:flex; gap:24px; align-items:center; flex-wrap:wrap; background:#fff; border-radius:18px; padding:28px; box-shadow:var(--sombra); }
+        .pf-cab h1 { margin:0 0 6px; color: var(--texto); }
+        .pf-esp { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+        .pf-esp span { background:#fbe3ec; color:#a81e61; padding:4px 12px; border-radius:20px; font-size:14px; }
+        .galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(180px,1fr)); gap:12px; }
+        .galeria button { padding:0; border:none; background:none; cursor:zoom-in; border-radius:12px; overflow:hidden; box-shadow:var(--sombra); }
+        .galeria img { width:100%; height:180px; object-fit:cover; display:block; transition:transform .2s; }
+        .galeria button:hover img { transform:scale(1.04); }
+        .aval-item { padding:12px 0; border-bottom:1px solid #fbe3ec; }
+        .aval-item:last-child { border-bottom:none; }
+        .lightbox { position:fixed; inset:0; background:rgba(0,0,0,.88); display:flex; flex-direction:column; align-items:center; justify-content:center; z-index:300; padding:20px; }
+        .lightbox img { max-width:100%; max-height:80vh; border-radius:10px; }
+        .lightbox p { color:#fff; margin-top:12px; }
+        .lightbox .fechar { position:absolute; top:16px; right:20px; font-size:34px; color:#fff; background:none; }
+    </style>
+</head>
+<body>
+<div class="pf-topo"><span class="marca"><img src="imagens/logo-branca.png" alt=""><b>Spa Delas</b></span><a href="index.html" id="linkVoltar">Entrar</a></div>
+<div class="pf-wrap" id="conteudo"><div class="carregando">Carregando…</div></div>
+<footer class="rodape"><img src="imagens/logo.png" alt=""><span>Spa Delas · Realce a sua beleza.</span></footer>
+<script src="comum.js"></script>
+<script>
+var id = Number(new URLSearchParams(location.search).get("id"));
+var sessao = null;
+try { sessao = JSON.parse(localStorage.getItem("sessao")); } catch (e) { sessao = null; }
+if (sessao && sessao.usuario) { var l = document.getElementById("linkVoltar"); l.textContent = "Minha área"; l.href = paginaInicialDo(sessao.usuario.tipo); }
+
+async function carregar() {
+    var raiz = document.getElementById("conteudo");
+    if (!id) { raiz.innerHTML = '<div class="aviso-caixa erro">Profissional não informada.</div>'; return; }
+    try {
+        var p = await api("/api/barbeiros/" + id + "/perfil", { semAuth: true });
+        document.title = p.nome + " - Spa Delas";
+        var podeAgendar = !sessao || (sessao.usuario && sessao.usuario.tipo === "Cliente");
+        var destino = sessao ? "cliente.html?barbeiro=" + p.id : "index.html";
+        var html = '<div class="pf-cab">' + avatarHtml(p.fotoUrl, p.nome, 110) + '<div style="flex:1;min-width:220px"><h1>' + esc(p.nome) + "</h1>" + mediaHtml(p.media, p.totalAvaliacoes) +
+            (p.especialidades ? '<div class="pf-esp">' + p.especialidades.split(",").map(function (e) { return e.trim() ? "<span>" + esc(e.trim()) + "</span>" : ""; }).join("") + "</div>" : "") + "</div>" +
+            (podeAgendar && p.ativo ? '<a class="btn btn-primario" href="' + destino + '">Agendar com ' + esc(p.nome.split(" ")[0]) + "</a>" : "") + "</div>";
+        if (!p.ativo) html += '<div class="aviso-caixa aviso mt">Esta profissional não está recebendo agendamentos no momento.</div>';
+        if (p.bio) html += '<div class="card mt"><h3>Sobre</h3><p style="white-space:pre-line">' + esc(p.bio) + "</p></div>";
+        html += '<div class="card"><h3>Portfólio</h3>' + (p.fotos.length ? '<div class="galeria">' + p.fotos.map(function (f, i) {
+            return '<button type="button" data-i="' + i + '"><img src="' + esc(f.url) + '" alt="' + esc(f.legenda || "Trabalho") + '" loading="lazy"></button>';
+        }).join("") + "</div>" : '<div class="vazio">Ainda sem fotos.</div>') + "</div>";
+        html += '<div class="card"><h3>Avaliações</h3>' + (p.avaliacoes.length ? p.avaliacoes.map(function (a) {
+            return '<div class="aval-item">' + estrelasHtml(a.nota) + " <b>" + esc(a.nomeCliente) + '</b> <span class="texto-suave texto-pequeno">' + esc(dataBR(new Date(a.data))) + "</span>" + (a.comentario ? "<p>" + esc(a.comentario) + "</p>" : "") + "</div>";
+        }).join("") : '<div class="vazio">Ainda sem avaliações.</div>') + "</div>";
+        raiz.innerHTML = html;
+        raiz.onclick = function (ev) {
+            var b = ev.target.closest("[data-i]"); if (!b) return;
+            var f = p.fotos[Number(b.getAttribute("data-i"))];
+            var lb = document.createElement("div"); lb.className = "lightbox";
+            lb.innerHTML = '<button class="fechar" aria-label="Fechar">×</button><img src="' + esc(f.url) + '" alt=""><p>' + esc(f.legenda || "") + "</p>";
+            lb.onclick = function () { lb.remove(); document.removeEventListener("keydown", tecla); };
+            function tecla(e) { if (e.key === "Escape") { lb.remove(); document.removeEventListener("keydown", tecla); } }
+            document.addEventListener("keydown", tecla); document.body.appendChild(lb);
+        };
+    } catch (e) { raiz.innerHTML = '<div class="aviso-caixa erro">' + esc(e.status === 404 ? "Profissional não encontrada." : e.message) + "</div>"; }
+}
+carregar();
+</script>
+</body>
+</html>

@@ -1,0 +1,438 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Spa Delas - Administração</title>
+    <link rel="icon" href="imagens/logo.png">
+    <link rel="stylesheet" href="estilo.css">
+    <link rel="stylesheet" href="comum.css">
+    <style>
+        .filtros { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
+        .filtros .campo { margin-bottom:0; }
+        .acoes-tab { display:flex; gap:6px; flex-wrap:wrap; }
+        tr.inativo td { opacity:.5; }
+        .tabela-rolagem { overflow-x:auto; }
+        .tabela-rolagem table { width:100%; min-width:560px; }
+        .galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(110px,1fr)); gap:8px; }
+        .galeria figure { margin:0; position:relative; }
+        .galeria img { width:100%; height:100px; object-fit:cover; border-radius:8px; display:block; }
+        .galeria .remover { position:absolute; top:4px; right:4px; background:rgba(0,0,0,.65); color:#fff; border-radius:50%; width:24px; height:24px; padding:0; line-height:1; }
+    </style>
+</head>
+<body>
+<div id="areaSistema">
+    <header class="topo" id="cabecalho"></header>
+    <nav class="menu" id="menu"></nav>
+    <main class="conteudo">
+
+        <section class="pagina escondido" id="pagina-dashboard">
+            <div class="titulo-pagina"><h2>Dashboard</h2><p>Visão geral do salão.</p></div>
+            <div class="card"><div class="filtros"><div class="campo"><label for="dashMeses">Período dos gráficos</label>
+                <select id="dashMeses"><option value="3">Últimos 3 meses</option><option value="6" selected>Últimos 6 meses</option><option value="12">Últimos 12 meses</option></select></div></div></div>
+            <div id="areaDash"><div class="carregando">Carregando…</div></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-agenda">
+            <div class="titulo-pagina"><h2>Agenda</h2><p>Todas as profissionais em formato de calendário.</p></div>
+            <div class="card"><div class="filtros" style="margin-bottom:14px"><div class="campo"><label for="agBarb">Profissional</label><select id="agBarb"><option value="">Todos</option></select></div></div><div id="calendario"></div></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-agendamentos">
+            <div class="titulo-pagina"><h2>Agendamentos</h2><p>Filtre, conclua, cancele ou crie agendamentos para clientes.</p></div>
+            <div class="card"><div class="filtros">
+                <div class="campo"><label for="fDe">De</label><input type="date" id="fDe"></div>
+                <div class="campo"><label for="fAte">Até</label><input type="date" id="fAte"></div>
+                <div class="campo"><label for="fBarb">Profissional</label><select id="fBarb"><option value="">Todos</option></select></div>
+                <div class="campo"><label for="fStatus">Status</label><select id="fStatus"><option value="">Todos</option><option>Agendado</option><option>Concluido</option><option>Faltou</option><option>Cancelado</option></select></div>
+                <button type="button" class="btn btn-primario" id="fBuscar">Filtrar</button>
+                <button type="button" class="btn btn-rosa" id="fNovo">+ Novo agendamento</button>
+            </div></div>
+            <div class="card" id="listaAg"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-servicos">
+            <div class="titulo-pagina"><h2>Serviços</h2><p>Edite, desative (sem perder histórico) ou remova.</p></div>
+            <div class="card"><button type="button" class="btn btn-rosa" id="novoServico">+ Novo serviço</button></div>
+            <div class="card" id="listaServicos"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-barbeiros">
+            <div class="titulo-pagina"><h2>Profissionais</h2><p>Cadastre, edite, defina a comissão, horários e perfil.</p></div>
+            <div class="card"><button type="button" class="btn btn-rosa" id="novoBarbeiro">+ Nova profissional</button></div>
+            <div class="card" id="listaBarbeiros"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-clientes">
+            <div class="titulo-pagina"><h2>Clientes</h2></div>
+            <div class="card" id="listaClientes"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-cupons">
+            <div class="titulo-pagina"><h2>Cupons de desconto</h2></div>
+            <div class="card"><button type="button" class="btn btn-rosa" id="novoCupom">+ Novo cupom</button></div>
+            <div class="card" id="listaCupons"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-financeiro">
+            <div class="titulo-pagina"><h2>Financeiro</h2><p>Atendimentos concluídos no período, com comissões e lucro do salão.</p></div>
+            <div class="card"><div class="filtros">
+                <div class="campo"><label for="finDe">De</label><input type="date" id="finDe"></div>
+                <div class="campo"><label for="finAte">Até</label><input type="date" id="finAte"></div>
+                <button type="button" class="btn btn-primario" id="finBuscar">Atualizar</button></div></div>
+            <div id="areaFin"></div>
+        </section>
+
+        <section class="pagina escondido" id="pagina-conta"><div id="areaConta"></div></section>
+    </main>
+</div>
+
+<script src="comum.js"></script>
+<script src="calendario.js"></script>
+<script src="horarios.js"></script>
+<script>
+var usuario = exigirLogin(["Administrador"]);
+var $ = function (id) { return document.getElementById(id); };
+var A = { servicos: [], barbeiros: [], clientes: [], cal: null, agLista: [] };
+var STATUS_ROTULO = { Agendado: "Agendado", Concluido: "Concluído", Faltou: "Faltou", Cancelado: "Cancelado" };
+
+function opcoesBarbeiros(sel, todos) {
+    return (todos ? '<option value="">Todos</option>' : "") + A.barbeiros.filter(function (b) { return b.ativo; }).map(function (b) { return '<option value="' + b.id + '"' + (b.id === sel ? " selected" : "") + ">" + esc(b.nome) + "</option>"; }).join("");
+}
+async function carregarBarbeiros() { A.barbeiros = await api("/api/barbeiros?todos=true"); }
+async function carregarServicos() { A.servicos = await api("/api/servicos?todos=true"); }
+function alvo(ev, attr) { var t = ev.target.closest("[" + attr + "]"); return t ? Number(t.getAttribute(attr)) : null; }
+function numero(v) { return Number(String(v).replace(",", ".")); }
+function inicioMes() { var d = new Date(); return isoData(new Date(d.getFullYear(), d.getMonth(), 1)); }
+
+/* ================= DASHBOARD ================= */
+function variacao(atual, anterior) {
+    if (!anterior) return atual > 0 ? "novo" : "—";
+    var v = Math.round(((atual - anterior) / anterior) * 100);
+    return (v >= 0 ? "▲ +" : "▼ ") + v + "% vs mês anterior";
+}
+async function renderDash() {
+    var area = $("areaDash");
+    try {
+        var d = await api("/api/dashboard?meses=" + $("dashMeses").value);
+        var maxF = Math.max.apply(null, d.faturamentoPorMes.map(function (m) { return m.faturamento; }).concat([1]));
+        var maxS = Math.max.apply(null, d.servicosMaisPedidos.map(function (s) { return s.quantidade; }).concat([1]));
+        var maxB = Math.max.apply(null, d.rankingBarbeiros.map(function (b) { return b.faturamento; }).concat([1]));
+        var maxH = Math.max.apply(null, d.horariosPico.map(function (h) { return h.quantidade; }).concat([1]));
+        var html = '<div class="grade-kpi">' +
+            '<div class="kpi"><span>Faturamento do mês</span><b>' + moeda(d.faturamentoMes) + "</b><small>" + variacao(d.faturamentoMes, d.faturamentoMesAnterior) + "</small></div>" +
+            '<div class="kpi"><span>Atendimentos no mês</span><b>' + d.atendimentosMes + "</b><small>" + d.faltas + " falta(s)</small></div>" +
+            '<div class="kpi"><span>Ticket médio</span><b>' + moeda(d.ticketMedio) + "</b><small>por atendimento</small></div>" +
+            '<div class="kpi"><span>Hoje</span><b>' + d.agendamentosHoje + "</b><small>" + d.agendamentosFuturos + " agendamentos futuros</small></div>" +
+            '<div class="kpi"><span>Clientes</span><b>' + d.totalClientes + "</b><small>cadastrados</small></div></div>";
+        html += '<div class="grade-2" style="align-items:start"><div class="card"><h3>Faturamento por mês</h3><div class="barras">' + d.faturamentoPorMes.map(function (m) {
+            var p = m.mes.split("-");
+            return '<div class="col" title="' + esc(m.atendimentos + " atendimento(s)") + '"><span class="v">' + moeda(m.faturamento) + '</span><div class="b" style="height:' + Math.round((m.faturamento / maxF) * 160) + 'px"></div><span class="r">' + p[1] + "/" + p[0].slice(2) + "</span></div>";
+        }).join("") + "</div></div>";
+        html += '<div class="card"><h3>Serviços mais pedidos</h3>' + (d.servicosMaisPedidos.length ? d.servicosMaisPedidos.map(function (s) {
+            return '<div class="hbarra"><span>' + esc(s.nome) + '</span><div class="trilho"><div class="preenche" style="width:' + Math.round((s.quantidade / maxS) * 100) + '%"></div></div><b>' + s.quantidade + "</b></div>";
+        }).join("") : '<div class="vazio">Sem dados no período.</div>') + "</div>";
+        html += '<div class="card"><h3>Ranking de profissionais</h3>' + (d.rankingBarbeiros.length ? d.rankingBarbeiros.map(function (b, i) {
+            return '<div class="hbarra"><span>' + (i + 1) + "º " + esc(b.nome) + '</span><div class="trilho"><div class="preenche" style="width:' + Math.round((b.faturamento / maxB) * 100) + '%"></div></div><b>' + moeda(b.faturamento) + "</b></div>" +
+                '<div class="texto-pequeno texto-suave" style="margin:-6px 0 10px">' + b.atendimentos + " atend. · comissão " + moeda(b.comissao) + " · " + (b.media ? Number(b.media).toFixed(1).replace(".", ",") + " ★" : "sem avaliações") + "</div>";
+        }).join("") : '<div class="vazio">Sem dados no período.</div>') + "</div>";
+        html += '<div class="card"><h3>Horários de pico</h3>' + (d.horariosPico.length ? '<div class="barras" style="height:180px">' + d.horariosPico.map(function (h) {
+            return '<div class="col"><span class="v">' + h.quantidade + '</span><div class="b" style="height:' + Math.round((h.quantidade / maxH) * 120) + 'px"></div><span class="r">' + esc(h.hora) + "</span></div>";
+        }).join("") + "</div>" : '<div class="vazio">Sem dados no período.</div>') + "</div></div>";
+        area.innerHTML = html;
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+
+/* ================= AGENDA (calendário) ================= */
+function abrirDetalheAg(a) {
+    abrirModal({
+        titulo: "Agendamento #" + a.id, html:
+            "<p><b>" + esc(a.nomeCliente) + "</b> com <b>" + esc(a.nomeBarbeiro) + "</b> " + badgeStatus(a.status) + "</p>" +
+            '<p class="mt">' + esc(dataHoraBR(new Date(a.dataHora))) + " — " + esc(a.nomeServico) + " (" + duracaoTexto(a.duracaoMinutos) + ")</p>" +
+            '<p class="mt">Cliente pagou <b>' + moeda(a.valorFinal) + "</b> · profissional " + moeda(a.valorBarbeiro) + " · salão " + moeda(a.valorAdministrador) + "</p>",
+        botoes: [{ rotulo: "Fechar", classe: "btn-secundario", fechar: true }].concat(a.status === "Agendado" ? [
+            { rotulo: "Cancelar", classe: "btn-perigo", aoClicar: function (m) { m.fechar(); acaoAg("cancelar", a); } },
+            { rotulo: "Concluir", classe: "btn-primario", aoClicar: function (m) { m.fechar(); acaoAg("Concluido", a); } }] : [])
+    });
+}
+function montarAgenda() {
+    $("agBarb").innerHTML = opcoesBarbeiros(null, true);
+    if (!A.cal) A.cal = Calendario.montar($("calendario"), {
+        modo: window.innerWidth < 700 ? "dia" : "semana", data: new Date(), horaInicio: 7, horaFim: 21, mostrarBarbeiro: true,
+        buscar: function (de, ate) { var b = $("agBarb").value; return api("/api/agendamentos?de=" + de + "&ate=" + ate + (b ? "&barbeiroId=" + b : "")); },
+        aoClicar: abrirDetalheAg
+    }); else A.cal.recarregar();
+}
+
+/* ================= AGENDAMENTOS (lista) ================= */
+async function acaoAg(acao, a) {
+    var r;
+    if (acao === "Concluido" || acao === "Faltou") r = await tentar(function () { return api("/api/agendamentos/" + a.id + "/status", { method: "PUT", body: { status: acao } }); });
+    else if (acao === "cancelar") {
+        if (!(await confirmar({ titulo: "Cancelar agendamento", mensagem: "Cancelar o horário de " + a.nomeCliente + " em " + dataHoraBR(new Date(a.dataHora)) + "?", textoConfirmar: "Cancelar horário", textoCancelar: "Manter", perigo: true }))) return;
+        r = await tentar(function () { return api("/api/agendamentos/" + a.id + "/cancelar", { method: "PUT" }); });
+    } else if (acao === "excluir") {
+        if (!(await confirmar({ titulo: "Excluir definitivamente", mensagem: "Isso apaga o registro e some dos relatórios financeiros. Prefira cancelar. Continuar?", textoConfirmar: "Excluir", perigo: true }))) return;
+        r = await tentar(function () { return api("/api/agendamentos/" + a.id, { method: "DELETE" }); });
+        if (r === undefined) return;
+    }
+    if (r !== undefined && r !== null) { toast("Feito!", "ok"); buscarAgendamentos(); if (A.cal) A.cal.recarregar(); }
+}
+async function buscarAgendamentos() {
+    var q = ["de=" + ($("fDe").value || inicioMes()) + "T00:00:00", "ate=" + isoData(somarDias(lerIsoData($("fAte").value || isoData(somarDias(new Date(), 30))), 1)) + "T00:00:00"];
+    if ($("fBarb").value) q.push("barbeiroId=" + $("fBarb").value);
+    if ($("fStatus").value) q.push("status=" + $("fStatus").value);
+    var area = $("listaAg"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    try {
+        A.agLista = await api("/api/agendamentos?" + q.join("&"));
+        area.innerHTML = A.agLista.length ? '<div class="tabela-rolagem"><table><thead><tr><th>Data</th><th>Cliente</th><th>Profissional</th><th>Serviço</th><th>Valor</th><th>Status</th><th></th></tr></thead><tbody>' +
+            A.agLista.map(function (a) {
+                var bt = "";
+                if (a.status === "Agendado") bt += '<button class="btn btn-primario btn-pequeno" data-ac="Concluido" data-id="' + a.id + '">Concluir</button><button class="btn btn-perigo btn-pequeno" data-ac="cancelar" data-id="' + a.id + '">Cancelar</button>';
+                bt += '<button class="btn btn-secundario btn-pequeno" data-ac="excluir" data-id="' + a.id + '" title="Excluir definitivamente">🗑</button>';
+                return "<tr><td>" + esc(dataHoraBR(new Date(a.dataHora))) + "</td><td>" + esc(a.nomeCliente) + "</td><td>" + esc(a.nomeBarbeiro) + "</td><td>" + esc(a.nomeServico) + "</td><td>" + moeda(a.valorFinal) + "</td><td>" + badgeStatus(a.status) + '</td><td><div class="acoes-tab">' + bt + "</div></td></tr>";
+            }).join("") + "</tbody></table></div>" : '<div class="vazio">Nenhum agendamento encontrado.</div>';
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+$("listaAg").onclick = function (ev) {
+    var t = ev.target.closest("[data-ac]"); if (!t) return;
+    var a = A.agLista.find(function (x) { return x.id === Number(t.getAttribute("data-id")); }); if (a) acaoAg(t.getAttribute("data-ac"), a);
+};
+async function novoAgendamento() {
+    if (!A.clientes.length) A.clientes = await api("/api/clientes").catch(function () { return []; });
+    var est = { hora: "" };
+    var m = abrirModal({
+        titulo: "Novo agendamento", largo: true, html:
+            '<div class="campo"><label>Cliente</label><select id="naCli">' + A.clientes.map(function (c) { return '<option value="' + c.id + '">' + esc(c.nome) + "</option>"; }).join("") + "</select></div>" +
+            '<div class="campo"><label>Serviços</label><div class="chips" id="naServ">' + A.servicos.filter(function (s) { return s.ativo; }).map(function (s) { return '<button type="button" class="chip" data-s="' + s.id + '"><strong>' + esc(s.nome) + "</strong><small>" + duracaoTexto(s.duracaoMinutos) + " · " + moeda(s.preco) + "</small></button>"; }).join("") + "</div></div>" +
+            '<div class="campo"><label>Profissional</label><select id="naBarb">' + opcoesBarbeiros(null, false) + '</select></div><div class="campo"><label>Dia</label><input type="date" id="naData" min="' + isoData(new Date()) + '"></div><div id="naSlots"></div>',
+        botoes: [{ rotulo: "Voltar", classe: "btn-secundario", fechar: true }, { rotulo: "Agendar", classe: "btn-primario", aoClicar: async function (mm) {
+            var ids = ids2(); if (!ids.length || !est.hora) { toast("Escolha serviços, dia e horário.", "erro"); return; }
+            try {
+                await api("/api/agendamentos", { method: "POST", body: { clienteId: Number(mm.corpo.querySelector("#naCli").value), barbeiroId: Number(mm.corpo.querySelector("#naBarb").value), dataHora: mm.corpo.querySelector("#naData").value + "T" + est.hora + ":00", servicoIds: ids } });
+                toast("Agendamento criado!", "ok"); mm.fechar(); buscarAgendamentos(); if (A.cal) A.cal.recarregar();
+            } catch (e) { toast(e.message, "erro"); }
+        } }]
+    });
+    function ids2() { return Array.prototype.map.call(m.corpo.querySelectorAll("#naServ .selecionado"), function (b) { return Number(b.getAttribute("data-s")); }); }
+    async function slots() {
+        est.hora = ""; var area = m.corpo.querySelector("#naSlots"), ids = ids2(), d = m.corpo.querySelector("#naData").value, b = m.corpo.querySelector("#naBarb").value;
+        if (!ids.length || !d || !b) { area.innerHTML = ""; return; }
+        try {
+            var l = await api("/api/agendamentos/horarios-livres?barbeiroId=" + b + "&data=" + d + "&servicoIds=" + ids.join(","));
+            area.innerHTML = l.length ? '<div class="slots">' + l.map(function (h) { return '<button type="button" class="slot" data-h="' + h + '">' + h + "</button>"; }).join("") + "</div>" : '<div class="aviso-caixa aviso">Sem horários livres.</div>';
+        } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+    }
+    m.corpo.addEventListener("click", function (ev) {
+        var s = ev.target.closest("[data-s]"), h = ev.target.closest("[data-h]");
+        if (s) { s.classList.toggle("selecionado"); slots(); }
+        if (h) { est.hora = h.getAttribute("data-h"); m.corpo.querySelectorAll("#naSlots .slot").forEach(function (x) { x.classList.remove("selecionado"); }); h.classList.add("selecionado"); }
+    });
+    m.corpo.querySelector("#naBarb").onchange = slots; m.corpo.querySelector("#naData").onchange = slots;
+}
+
+/* ================= SERVIÇOS ================= */
+function renderServicos() {
+    $("listaServicos").innerHTML = A.servicos.length ? '<div class="tabela-rolagem"><table><thead><tr><th>Serviço</th><th>Duração</th><th>Preço</th><th>Status</th><th></th></tr></thead><tbody>' + A.servicos.map(function (s) {
+        return '<tr class="' + (s.ativo ? "" : "inativo") + '"><td><b>' + esc(s.nome) + "</b></td><td>" + duracaoTexto(s.duracaoMinutos) + "</td><td>" + moeda(s.preco) + "</td><td>" + (s.ativo ? '<span class="badge badge-concluido">Ativo</span>' : '<span class="badge badge-cancelado">Inativo</span>') +
+            '</td><td><div class="acoes-tab"><button class="btn btn-secundario btn-pequeno" data-edit="' + s.id + '">Editar</button><button class="btn btn-secundario btn-pequeno" data-toggle="' + s.id + '">' + (s.ativo ? "Desativar" : "Ativar") + '</button><button class="btn btn-perigo btn-pequeno" data-del="' + s.id + '">Excluir</button></div></td></tr>';
+    }).join("") + "</tbody></table></div>" : '<div class="vazio">Nenhum serviço cadastrado.</div>';
+}
+function formServico(s) {
+    s = s || {};
+    abrirModal({
+        titulo: s.id ? "Editar serviço" : "Novo serviço", html:
+            '<div class="campo"><label>Nome</label><input id="svNome" maxlength="100" value="' + esc(s.nome || "") + '"></div>' +
+            '<div class="campo"><label>Preço (R$)</label><input id="svPreco" inputmode="decimal" value="' + (s.preco != null ? String(s.preco).replace(".", ",") : "") + '"></div>' +
+            '<div class="campo"><label>Duração (minutos)</label><input type="number" id="svDur" min="15" step="15" value="' + (s.duracaoMinutos || 30) + '"></div>',
+        botoes: [{ rotulo: "Cancelar", classe: "btn-secundario", fechar: true }, { rotulo: "Salvar", classe: "btn-primario", aoClicar: async function (m) {
+            var corpo = { nome: m.corpo.querySelector("#svNome").value.trim(), preco: numero(m.corpo.querySelector("#svPreco").value), duracaoMinutos: Number(m.corpo.querySelector("#svDur").value) };
+            if (!corpo.nome || !(corpo.preco >= 0) || !(corpo.duracaoMinutos > 0)) { toast("Preencha nome, preço e duração.", "erro"); return; }
+            try { await api("/api/servicos" + (s.id ? "/" + s.id : ""), { method: s.id ? "PUT" : "POST", body: corpo }); toast("Serviço salvo!", "ok"); m.fechar(); await carregarServicos(); renderServicos(); }
+            catch (e) { toast(e.message, "erro"); }
+        } }]
+    });
+}
+$("novoServico").onclick = function () { formServico(); };
+$("listaServicos").onclick = async function (ev) {
+    var e = alvo(ev, "data-edit"), t = alvo(ev, "data-toggle"), d = alvo(ev, "data-del");
+    var find = function (id) { return A.servicos.find(function (x) { return x.id === id; }); };
+    if (e) formServico(find(e));
+    if (t) { var s = find(t); var r = await tentar(function () { return api("/api/servicos/" + t + "/ativo", { method: "PATCH", body: { ativo: !s.ativo } }); }); if (r) { await carregarServicos(); renderServicos(); toast(s.ativo ? "Serviço desativado." : "Serviço ativado.", "ok"); } }
+    if (d) {
+        var sv = find(d);
+        if (!(await confirmar({ titulo: "Excluir serviço", mensagem: 'Excluir "' + sv.nome + '"?', textoConfirmar: "Excluir", perigo: true }))) return;
+        try { await api("/api/servicos/" + d, { method: "DELETE" }); toast("Serviço excluído.", "ok"); await carregarServicos(); renderServicos(); }
+        catch (er) { toast(er.status === 409 ? "Esse serviço já foi usado em agendamentos. Desative-o para preservar o histórico." : er.message, "erro"); }
+    }
+};
+
+/* ================= BARBEIROS ================= */
+function renderBarbeiros() {
+    $("listaBarbeiros").innerHTML = A.barbeiros.length ? '<div class="tabela-rolagem"><table><thead><tr><th>Profissional</th><th>E-mail</th><th>Comissão</th><th>Nota</th><th>Status</th><th></th></tr></thead><tbody>' + A.barbeiros.map(function (b) {
+        return '<tr class="' + (b.ativo ? "" : "inativo") + '"><td><div class="flex">' + avatarHtml(b.fotoUrl, b.nome, 34) + "<b>" + esc(b.nome) + "</b></div></td><td>" + esc(b.email || "") + "</td><td>" + (b.percentualBarbeiro != null ? b.percentualBarbeiro + "%" : "—") + "</td><td>" + mediaHtml(b.media, b.totalAvaliacoes) + "</td><td>" + (b.ativo ? '<span class="badge badge-concluido">Ativo</span>' : '<span class="badge badge-cancelado">Inativo</span>') +
+            '</td><td><div class="acoes-tab"><button class="btn btn-secundario btn-pequeno" data-edit="' + b.id + '">Editar</button><button class="btn btn-secundario btn-pequeno" data-horas="' + b.id + '">Horários</button><button class="btn btn-secundario btn-pequeno" data-perf="' + b.id + '">Perfil</button><button class="btn btn-secundario btn-pequeno" data-toggle="' + b.id + '">' + (b.ativo ? "Desativar" : "Ativar") + '</button><button class="btn btn-perigo btn-pequeno" data-del="' + b.id + '">Excluir</button></div></td></tr>';
+    }).join("") + "</tbody></table></div>" : '<div class="vazio">Nenhuma profissional cadastrada.</div>';
+}
+function formBarbeiro(b) {
+    b = b || {};
+    abrirModal({
+        titulo: b.id ? "Editar profissional" : "Nova profissional", html:
+            '<div class="campo"><label>Nome</label><input id="bbNome" maxlength="100" value="' + esc(b.nome || "") + '"></div>' +
+            '<div class="campo"><label>E-mail (login)</label><input type="email" id="bbEmail" value="' + esc(b.email || "") + '"></div>' +
+            '<div class="campo"><label>' + (b.id ? "Nova senha (deixe em branco para manter)" : "Senha inicial (mín. 6 caracteres)") + '</label><input type="password" id="bbSenha" autocomplete="new-password"></div>' +
+            '<div class="campo"><label>Comissão da profissional (%)</label><input type="number" id="bbPct" min="0" max="100" value="' + (b.percentualBarbeiro != null ? b.percentualBarbeiro : 50) + '"></div>',
+        botoes: [{ rotulo: "Cancelar", classe: "btn-secundario", fechar: true }, { rotulo: "Salvar", classe: "btn-primario", aoClicar: async function (m) {
+            var q = function (id) { return m.corpo.querySelector(id).value; };
+            var corpo = { nome: q("#bbNome").trim(), email: q("#bbEmail").trim(), percentualBarbeiro: Number(q("#bbPct")) };
+            if (!corpo.nome || !corpo.email) { toast("Informe nome e e-mail.", "erro"); return; }
+            if (!(corpo.percentualBarbeiro >= 0 && corpo.percentualBarbeiro <= 100)) { toast("A comissão deve ficar entre 0 e 100.", "erro"); return; }
+            if (b.id) { if (q("#bbSenha")) corpo.novaSenha = q("#bbSenha"); } else { if (q("#bbSenha").length < 6) { toast("A senha precisa de ao menos 6 caracteres.", "erro"); return; } corpo.senha = q("#bbSenha"); }
+            try { await api("/api/barbeiros" + (b.id ? "/" + b.id : ""), { method: b.id ? "PUT" : "POST", body: corpo }); toast("Profissional salva!", "ok"); m.fechar(); await carregarBarbeiros(); renderBarbeiros(); }
+            catch (e) { toast(e.message, "erro"); }
+        } }]
+    });
+}
+async function abrirPerfilBarbeiro(b) {
+    var p = await tentar(function () { return api("/api/barbeiros/" + b.id + "/perfil"); }); if (!p) return;
+    var m = abrirModal({
+        titulo: "Perfil — " + b.nome, largo: true, html:
+            '<div class="campo"><label>Especialidades</label><input id="ppEsp" maxlength="200" value="' + esc(p.especialidades || "") + '"></div><div class="campo"><label>Apresentação</label><textarea id="ppBio" maxlength="1000">' + esc(p.bio || "") + "</textarea></div>" +
+            '<h4>Portfólio (' + p.fotos.length + "/12)</h4>" + (p.fotos.length ? '<div class="galeria">' + p.fotos.map(function (f) { return '<figure><img src="' + esc(f.url) + '" alt=""><button type="button" class="remover" data-foto="' + f.id + '">×</button></figure>'; }).join("") + "</div>" : '<p class="texto-suave">Sem fotos.</p>') +
+            '<div class="flex mt"><input type="file" id="ppArq" accept="image/jpeg,image/png,image/webp"><button type="button" class="btn btn-rosa btn-pequeno" id="ppEnviar">Adicionar foto</button></div>',
+        botoes: [{ rotulo: "Fechar", classe: "btn-secundario", fechar: true }, { rotulo: "Salvar textos", classe: "btn-primario", aoClicar: async function (mm) {
+            var r = await tentar(function () { return api("/api/barbeiros/" + b.id + "/perfil", { method: "PUT", body: { especialidades: mm.corpo.querySelector("#ppEsp").value.trim(), bio: mm.corpo.querySelector("#ppBio").value.trim() } }); });
+            if (r) { toast("Perfil salvo!", "ok"); mm.fechar(); await carregarBarbeiros(); renderBarbeiros(); }
+        } }]
+    });
+    m.corpo.querySelector("#ppEnviar").onclick = async function () {
+        var arq = m.corpo.querySelector("#ppArq").files[0]; if (!arq) { toast("Escolha uma imagem.", "erro"); return; }
+        var fd = new FormData(); fd.append("arquivo", arq); fd.append("legenda", "");
+        var r = await tentar(function () { return api("/api/barbeiros/" + b.id + "/portfolio", { method: "POST", body: fd }); });
+        if (r) { toast("Foto adicionada!", "ok"); m.fechar(); abrirPerfilBarbeiro(b); }
+    };
+    m.corpo.addEventListener("click", async function (ev) {
+        var f = ev.target.closest("[data-foto]"); if (!f) return;
+        var r = await tentar(function () { return api("/api/barbeiros/" + b.id + "/portfolio/" + f.getAttribute("data-foto"), { method: "DELETE" }); });
+        if (r !== undefined) { m.fechar(); abrirPerfilBarbeiro(b); }
+    });
+}
+$("novoBarbeiro").onclick = function () { formBarbeiro(); };
+$("listaBarbeiros").onclick = async function (ev) {
+    var find = function (id) { return A.barbeiros.find(function (x) { return x.id === id; }); };
+    var e = alvo(ev, "data-edit"), h = alvo(ev, "data-horas"), pf = alvo(ev, "data-perf"), t = alvo(ev, "data-toggle"), d = alvo(ev, "data-del");
+    if (e) formBarbeiro(find(e));
+    if (h) { var m = abrirModal({ titulo: "Horários — " + find(h).nome, largo: true, html: '<div id="edHor"></div>', botoes: [{ rotulo: "Fechar", classe: "btn-secundario", fechar: true }] }); EditorHorarios.montar(m.corpo.querySelector("#edHor"), h); }
+    if (pf) abrirPerfilBarbeiro(find(pf));
+    if (t) { var b = find(t); var r = await tentar(function () { return api("/api/barbeiros/" + t + "/ativo", { method: "PATCH", body: { ativo: !b.ativo } }); }); if (r) { await carregarBarbeiros(); renderBarbeiros(); toast(b.ativo ? "Profissional desativada (não aparece para clientes)." : "Profissional ativada.", "ok"); } }
+    if (d) {
+        var bb = find(d);
+        if (!(await confirmar({ titulo: "Excluir profissional", mensagem: 'Excluir "' + bb.nome + '"?', textoConfirmar: "Excluir", perigo: true }))) return;
+        try { await api("/api/barbeiros/" + d, { method: "DELETE" }); toast("Profissional excluída.", "ok"); await carregarBarbeiros(); renderBarbeiros(); }
+        catch (er) { toast(er.status === 409 ? "Essa profissional tem histórico de atendimentos. Desative-a em vez de excluir." : er.message, "erro"); }
+    }
+};
+
+/* ================= CLIENTES ================= */
+async function renderClientes() {
+    var area = $("listaClientes"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    try {
+        A.clientes = await api("/api/clientes");
+        area.innerHTML = A.clientes.length ? '<div class="tabela-rolagem"><table><thead><tr><th>Cliente</th><th>E-mail</th><th>Agendamentos</th><th></th></tr></thead><tbody>' + A.clientes.map(function (c) {
+            return "<tr><td><div class=\"flex\">" + avatarHtml(c.fotoUrl, c.nome, 34) + "<b>" + esc(c.nome) + "</b></div></td><td>" + esc(c.email) + "</td><td>" + c.totalAgendamentos + '</td><td><button class="btn btn-perigo btn-pequeno" data-del="' + c.id + '">Excluir</button></td></tr>';
+        }).join("") + "</tbody></table></div>" : '<div class="vazio">Nenhum cliente cadastrado.</div>';
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+$("listaClientes").onclick = async function (ev) {
+    var d = alvo(ev, "data-del"); if (!d) return;
+    var c = A.clientes.find(function (x) { return x.id === d; });
+    if (!(await confirmar({ titulo: "Excluir cliente", mensagem: 'Excluir "' + c.nome + '"?', textoConfirmar: "Excluir", perigo: true }))) return;
+    try { await api("/api/clientes/" + d, { method: "DELETE" }); toast("Cliente excluído.", "ok"); renderClientes(); }
+    catch (er) { toast(er.status === 409 ? "Esse cliente tem histórico de agendamentos e não pode ser excluído." : er.message, "erro"); }
+};
+
+/* ================= CUPONS ================= */
+async function renderCupons() {
+    var area = $("listaCupons"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    try {
+        A.cupons = await api("/api/cupons");
+        area.innerHTML = A.cupons.length ? '<div class="tabela-rolagem"><table><thead><tr><th>Código</th><th>Desconto</th><th>Validade</th><th>Usos</th><th>Status</th><th></th></tr></thead><tbody>' + A.cupons.map(function (c) {
+            return '<tr class="' + (c.ativo ? "" : "inativo") + '"><td><b>' + esc(c.codigo) + "</b></td><td>" + (c.tipo === "Percentual" ? c.valor + "%" : moeda(c.valor)) + "</td><td>" + (c.validade ? esc(dataBR(lerIsoData(String(c.validade).slice(0, 10)))) : "Sem validade") + "</td><td>" + c.usosAtuais + (c.usosMaximos ? " / " + c.usosMaximos : "") + "</td><td>" + (c.ativo ? '<span class="badge badge-concluido">Ativo</span>' : '<span class="badge badge-cancelado">Inativo</span>') +
+                '</td><td><div class="acoes-tab"><button class="btn btn-secundario btn-pequeno" data-edit="' + c.id + '">Editar</button><button class="btn btn-secundario btn-pequeno" data-toggle="' + c.id + '">' + (c.ativo ? "Desativar" : "Ativar") + '</button><button class="btn btn-perigo btn-pequeno" data-del="' + c.id + '">Excluir</button></div></td></tr>';
+        }).join("") + "</tbody></table></div>" : '<div class="vazio">Nenhum cupom cadastrado.</div>';
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+function formCupom(c) {
+    c = c || {};
+    abrirModal({
+        titulo: c.id ? "Editar cupom" : "Novo cupom", html:
+            '<div class="campo"><label>Código</label><input id="cpCod" maxlength="40" value="' + esc(c.codigo || "") + '" style="text-transform:uppercase"></div>' +
+            '<div class="campo"><label>Tipo</label><select id="cpTipo"><option value="Percentual"' + (c.tipo === "Percentual" ? " selected" : "") + '>Percentual (%)</option><option value="Valor"' + (c.tipo === "Valor" ? " selected" : "") + ">Valor fixo (R$)</option></select></div>" +
+            '<div class="campo"><label>Valor</label><input id="cpVal" inputmode="decimal" value="' + (c.valor != null ? String(c.valor).replace(".", ",") : "") + '"></div>' +
+            '<div class="campo"><label>Validade (opcional)</label><input type="date" id="cpVal2" value="' + (c.validade ? String(c.validade).slice(0, 10) : "") + '"></div>' +
+            '<div class="campo"><label>Máximo de usos (opcional)</label><input type="number" id="cpMax" min="1" value="' + (c.usosMaximos || "") + '"></div>',
+        botoes: [{ rotulo: "Cancelar", classe: "btn-secundario", fechar: true }, { rotulo: "Salvar", classe: "btn-primario", aoClicar: async function (m) {
+            var q = function (id) { return m.corpo.querySelector(id).value; };
+            var corpo = { codigo: q("#cpCod").trim().toUpperCase(), tipo: q("#cpTipo"), valor: numero(q("#cpVal")), validade: q("#cpVal2") || null, usosMaximos: q("#cpMax") ? Number(q("#cpMax")) : null };
+            if (!corpo.codigo || !(corpo.valor > 0)) { toast("Informe código e valor maior que zero.", "erro"); return; }
+            if (corpo.tipo === "Percentual" && corpo.valor > 100) { toast("O percentual não pode passar de 100.", "erro"); return; }
+            try { await api("/api/cupons" + (c.id ? "/" + c.id : ""), { method: c.id ? "PUT" : "POST", body: corpo }); toast("Cupom salvo!", "ok"); m.fechar(); renderCupons(); }
+            catch (e) { toast(e.message, "erro"); }
+        } }]
+    });
+}
+$("novoCupom").onclick = function () { formCupom(); };
+$("listaCupons").onclick = async function (ev) {
+    var find = function (id) { return A.cupons.find(function (x) { return x.id === id; }); };
+    var e = alvo(ev, "data-edit"), t = alvo(ev, "data-toggle"), d = alvo(ev, "data-del");
+    if (e) formCupom(find(e));
+    if (t) { var c = find(t); var r = await tentar(function () { return api("/api/cupons/" + t + "/ativo", { method: "PATCH", body: { ativo: !c.ativo } }); }); if (r) renderCupons(); }
+    if (d) {
+        if (!(await confirmar({ titulo: "Excluir cupom", mensagem: "Excluir este cupom?", textoConfirmar: "Excluir", perigo: true }))) return;
+        try { await api("/api/cupons/" + d, { method: "DELETE" }); toast("Cupom excluído.", "ok"); renderCupons(); }
+        catch (er) { toast(er.status === 409 ? "Esse cupom já foi usado. Desative-a em vez de excluir." : er.message, "erro"); }
+    }
+};
+
+/* ================= FINANCEIRO ================= */
+async function renderFinanceiro() {
+    var de = $("finDe").value || inicioMes(), ate = $("finAte").value || isoData(new Date());
+    var area = $("areaFin"); area.innerHTML = '<div class="carregando">Carregando…</div>';
+    try {
+        var l = (await api("/api/agendamentos?de=" + de + "T00:00:00&ate=" + isoData(somarDias(lerIsoData(ate), 1)) + "T00:00:00&status=Concluido"));
+        var soma = function (campo) { return l.reduce(function (t, a) { return t + Number(a[campo] || 0); }, 0); };
+        var porBarb = {};
+        l.forEach(function (a) { var x = porBarb[a.barbeiroId] || (porBarb[a.barbeiroId] = { nome: a.nomeBarbeiro, n: 0, receita: 0, com: 0 }); x.n++; x.receita += Number(a.valorFinal); x.com += Number(a.valorBarbeiro); });
+        var html = '<div class="grade-kpi"><div class="kpi"><span>Receita</span><b>' + moeda(soma("valorFinal")) + "</b><small>" + l.length + " atendimento(s)</small></div>" +
+            '<div class="kpi"><span>Descontos dados</span><b>' + moeda(soma("valorDesconto")) + "</b><small>cupons e fidelidade</small></div>" +
+            '<div class="kpi"><span>Comissões</span><b>' + moeda(soma("valorBarbeiro")) + "</b><small>das profissionais</small></div>" +
+            '<div class="kpi"><span>Lucro do salão</span><b>' + moeda(soma("valorAdministrador")) + "</b><small>após comissões</small></div></div>";
+        var ks = Object.keys(porBarb);
+        html += '<div class="card"><h3>Por profissional</h3>' + (ks.length ? '<div class="tabela-rolagem"><table><thead><tr><th>Profissional</th><th>Atendimentos</th><th>Receita</th><th>Comissão</th></tr></thead><tbody>' + ks.map(function (k) { var x = porBarb[k]; return "<tr><td>" + esc(x.nome) + "</td><td>" + x.n + "</td><td>" + moeda(x.receita) + "</td><td>" + moeda(x.com) + "</td></tr>"; }).join("") + "</tbody></table></div>" : '<div class="vazio">Sem atendimentos concluídos no período.</div>') + "</div>";
+        area.innerHTML = html;
+    } catch (e) { area.innerHTML = '<div class="aviso-caixa erro">' + esc(e.message) + "</div>"; }
+}
+
+/* ================= início ================= */
+async function iniciar() {
+    montarCabecalho(usuario);
+    await Promise.all([carregarBarbeiros(), carregarServicos()]).catch(function (e) { toast(e.message, "erro"); });
+    $("fBarb").innerHTML = opcoesBarbeiros(null, true);
+    $("fDe").value = inicioMes(); $("fAte").value = isoData(somarDias(new Date(), 30)); $("finDe").value = inicioMes(); $("finAte").value = isoData(new Date());
+    $("dashMeses").onchange = renderDash; $("agBarb").onchange = function () { if (A.cal) A.cal.recarregar(); };
+    $("fBuscar").onclick = buscarAgendamentos; $("fNovo").onclick = novoAgendamento; $("finBuscar").onclick = renderFinanceiro;
+    Paginas.aoAbrir("dashboard", renderDash);
+    Paginas.aoAbrir("agenda", montarAgenda);
+    Paginas.aoAbrir("agendamentos", buscarAgendamentos);
+    Paginas.aoAbrir("servicos", async function () { await carregarServicos(); renderServicos(); });
+    Paginas.aoAbrir("barbeiros", async function () { await carregarBarbeiros(); renderBarbeiros(); });
+    Paginas.aoAbrir("clientes", renderClientes);
+    Paginas.aoAbrir("cupons", renderCupons);
+    Paginas.aoAbrir("financeiro", renderFinanceiro);
+    Paginas.aoAbrir("conta", function () { montarConta($("areaConta")); });
+    Paginas.menu([{ id: "dashboard", rotulo: "Dashboard" }, { id: "agenda", rotulo: "Agenda" }, { id: "agendamentos", rotulo: "Agendamentos" }, { id: "servicos", rotulo: "Serviços" }, { id: "barbeiros", rotulo: "Profissionais" }, { id: "clientes", rotulo: "Clientes" }, { id: "cupons", rotulo: "Cupons" }, { id: "financeiro", rotulo: "Financeiro" }, { id: "conta", rotulo: "Minha conta" }]);
+}
+if (usuario) iniciar();
+</script>
+</body>
+</html>
