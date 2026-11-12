@@ -388,6 +388,29 @@ function seletorEstrelas(container, valorInicial, aoMudar) {
  Paginas.aoAbrir("agenda", function () { ... });   // chamado SEMPRE que a pagina e aberta
  Paginas.ir("agenda");
 */
+var ICONES = {
+    inicio: '<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+    agendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M12 14v4M10 16h4"/>',
+    meus: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18M9 16l2 2 4-4"/>',
+    agenda: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>',
+    agendamentos: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    barbeiros: '<path d="M11 3l1.8 4.7 4.7 1.8-4.7 1.8L11 16l-1.8-4.7L4.5 9.5l4.7-1.8z"/><path d="M18 14l.8 2.2L21 17l-2.2.8L18 20l-.8-2.2L15 17l2.2-.8z"/>',
+    clientes: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c2.5 0 4.5 2 4.5 5"/>',
+    dashboard: '<path d="M4 20V10M10 20V4M16 20v-8M22 20H2"/>',
+    servicos: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M8.5 8l11 9M8.5 16l11-9"/>',
+    cupons: '<path d="M3 9a2 2 0 0 0 0 6v3h18v-3a2 2 0 0 1 0-6V6H3z"/><path d="M13 7v10" stroke-dasharray="2 2"/>',
+    financeiro: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M16 15h2"/>',
+    ganhos: '<circle cx="12" cy="12" r="9"/><path d="M14.5 9.5a2.5 2 0 0 0-2.5-1.5c-1.5 0-2.5.8-2.5 2s1 1.7 2.5 2 2.5.8 2.5 2-1 2-2.5 2a2.5 2 0 0 1-2.5-1.5M12 6v2M12 16v2"/>',
+    horarios: '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',
+    perfil: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="10" r="3"/><path d="M6.5 18.5c1-2.5 3-3.5 5.5-3.5s4.5 1 5.5 3.5"/>',
+    avaliacoes: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+    conta: '<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-7 8-7s8 3 8 7"/>'
+};
+function iconeSvg(id) {
+    return '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + (ICONES[id] || '<circle cx="12" cy="12" r="3"/>') + "</svg>";
+}
+function fecharMenuLateral() { document.body.classList.remove("menu-aberto"); }
+
 var Paginas = {
     _handlers: {},
     _atual: null,
@@ -399,8 +422,11 @@ var Paginas = {
         document.querySelectorAll(".pagina").forEach(function (p) { p.classList.add("escondido"); });
         alvo.classList.remove("escondido");
         document.querySelectorAll("#menu button").forEach(function (b) {
-            b.classList.toggle("ativo", b.getAttribute("data-pagina") === id);
+            var ativo = b.getAttribute("data-pagina") === id;
+            b.classList.toggle("ativo", ativo);
+            if (ativo) { var tt = document.getElementById("topoTitulo"); if (tt) tt.textContent = b.textContent; }
         });
+        fecharMenuLateral();
         Paginas._atual = id;
         try { history.replaceState(null, "", "#" + id); } catch (e) { /* ignora */ }
         window.scrollTo(0, 0);
@@ -413,12 +439,12 @@ var Paginas = {
     },
     menu: function (itens) {
         var nav = document.getElementById("menu");
-        nav.innerHTML = "";
+        nav.innerHTML = '<div class="menu-marca"><img src="imagens/logo-branca.png" alt=""><div><b>Spa Delas</b><small>Realce a sua beleza</small></div></div><div class="menu-rotulo">Menu</div>';
         itens.forEach(function (item) {
             var b = document.createElement("button");
             b.type = "button";
             b.setAttribute("data-pagina", item.id);
-            b.textContent = item.rotulo;
+            b.innerHTML = iconeSvg(item.id) + "<span>" + esc(item.rotulo) + "</span>";
             b.onclick = function () { Paginas.ir(item.id); };
             nav.appendChild(b);
         });
@@ -436,7 +462,7 @@ function montarCabecalho(usuario) {
     var ultimo = { naoLidas: 0, itens: [] };
 
     topo.innerHTML =
-        '<div class="logo"><a href="' + paginaInicialDo(usuario.tipo) + '"><span class="marca"><img src="imagens/logo-branca.png" alt=""><b>Spa Delas</b></span></a></div>' +
+        '<div class="topo-esq"><button type="button" class="btn-hamb" id="btnMenu" aria-label="Abrir menu">☰</button><h1 class="topo-titulo" id="topoTitulo"></h1></div>' +
         '<div class="usuario-topo">' +
         '  <button type="button" class="btn-sino" id="btnSino" aria-label="Notificações"><img class="sino-img" src="imagens/sino.jpg" alt="" onerror="this.replaceWith(document.createTextNode(\'🔔\'))"><span class="contador escondido" id="contadorSino">0</span></button>' +
         '  <div class="painel-notificacoes escondido" id="painelNotificacoes"></div>' +
@@ -513,6 +539,12 @@ function montarCabecalho(usuario) {
     });
 
     document.getElementById("btnSair").onclick = sair;
+    document.getElementById("btnMenu").onclick = function () { document.body.classList.toggle("menu-aberto"); };
+    if (!document.getElementById("menuFundo")) {
+        var fundoMenu = document.createElement("div");
+        fundoMenu.id = "menuFundo"; fundoMenu.className = "menu-fundo"; fundoMenu.onclick = fecharMenuLateral;
+        document.body.appendChild(fundoMenu);
+    }
     document.getElementById("btnPerfilTopo").onclick = function () {
         if (document.getElementById("pagina-conta")) Paginas.ir("conta");
     };

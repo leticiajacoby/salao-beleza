@@ -130,7 +130,7 @@ var Calendario = (function () {
             html += '<div class="cal-moldura"><div class="cal" style="grid-template-columns:56px repeat(' + dias.length + ',minmax(0,1fr))">';
 
             // Cabecalho
-            html += '<div class="cal-cab" style="background:var(--rosa-escuro)"></div>';
+            html += '<div class="cal-cab"></div>';
             dias.forEach(function (d) {
                 var ehHoje = isoData(d) === hojeIso;
                 html += '<div class="cal-cab ' + (ehHoje ? "hoje" : "") + '">' + esc(diaSemanaBR(d)) + "<strong>" + d.getDate() + "</strong></div>";
